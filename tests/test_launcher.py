@@ -45,3 +45,28 @@ def test_redirected_cp1250_output_does_not_crash(tmp_path, monkeypatch):
     bad = tmp_path / "bad.nc"
     bad.write_text("G21\nG41 D1\nG1 X10 F100\n")
     assert cli.main(["machine", str(bad), "--out", str(tmp_path / "b")]) == 2
+
+
+def test_gui_without_qt_gives_clear_message(tmp_path, monkeypatch, capsys):
+    """Regression: roboCODE.exe (no Qt) crashed with ModuleNotFoundError on menu option 5."""
+    monkeypatch.setattr(launcher, "base_dir", lambda: tmp_path)
+    monkeypatch.setattr(launcher, "_gui_libs_available", lambda: False)
+    assert launcher.run_gui() == 1
+    assert "PySide6" in capsys.readouterr().out
+
+
+def test_gui_falls_back_to_project_venv(tmp_path, monkeypatch, capsys):
+    import subprocess
+    import sys
+    py = tmp_path / ".venv" / "bin" / "python"
+    py.parent.mkdir(parents=True)
+    py.write_text("")
+    monkeypatch.setattr(launcher, "base_dir", lambda: tmp_path)
+    monkeypatch.setattr(launcher, "_gui_libs_available", lambda: False)
+    calls = []
+    monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0))
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **k: calls.append(args))
+    monkeypatch.setattr(sys, "executable", "/elsewhere/python")
+    assert launcher.run_gui() == 0
+    assert calls and calls[0][1:] == ["-m", "robocode.cli", "gui"]
+    assert "osobnym oknie" in capsys.readouterr().out
