@@ -48,7 +48,7 @@
  |  [x] panel Projektu obrobki pokazujacy raport walidacji (odswiezany po aktualizacji i eksporcie)
  |  [~]      edycja nazwy/pozy (Undo/Redo), selekcja elementow sceny w 3D; gizmo nadal otwarte
  |  [x]      animacja symulacji: play/pauza/stop, suwak probek, 1x/5x/20x/100x, pozycja startowa
- |  [ ]      podglad osiagalnosci na zywo, gizmo edycji w 3D
+ |  [~]      podglad osiagalnosci w panelu Projektu obrobki + kolory punktow; gizmo edycji w 3D otwarte
  |
  v0.6  ADVANCED MACHINING                           [###-------]  30%
  |  [x] matematyka kalibracji TCP / ukladu (coop/calibration.py)
@@ -89,7 +89,7 @@
    2. test na robocie T1, zredukowana predkosc
       - blokada: brak robota, sterownika OEM, zatwierdzonej celi i nadzorujacego operatora
    3. limity predkosci/przyspieszen osi z kart katalogowych + uzupelnienie konfiguracji Rear/Down
-   4. GUI v0.5: podglad osiagalnosci na zywo i gizmo edycji w 3D
+   4. GUI v0.5: gizmo edycji w 3D (podglad osiagalnosci raportowany w panelu i widoku sciezki)
    5. kolizje v0.7: geometria mesh/FCL, samokolizje i edytor mapy kolizji
    6. v0.6: orientacja podazajaca za sciezka / remote TCP, makra Python i import krzywych
    7. osie zewnetrzne; potem integracja przeplywu dual-arm i eksport dwoch programow

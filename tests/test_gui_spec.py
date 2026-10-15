@@ -5,7 +5,7 @@ import numpy as np
 from robocode.gui import actions as A
 from robocode.gui.handlers import AppState, cancel_pending_calibration, dispatch
 from robocode.demo import build_demo_station
-from robocode.gui.main_window import _report_text
+from robocode.gui.main_window import _reachability_text, _report_text
 from robocode.core import pose as P
 
 
@@ -51,6 +51,20 @@ def test_machining_project_updates_validation_report_and_panel_text():
     assert state.last_report is not report
     assert "próbek trajektorii" in _report_text(state.last_report)
     assert "Brak raportu walidacji" in _report_text(None)
+
+
+def test_reachability_summary_reports_all_and_unreachable_samples():
+    from types import SimpleNamespace
+
+    assert _reachability_text(None) == "Osiągalność: brak obliczonego projektu obróbki."
+    project = SimpleNamespace(result=SimpleNamespace(reachable=[True, True, True]))
+    assert "3/3 próbek" in _reachability_text(project)
+    assert "wszystkie osiągalne" in _reachability_text(project)
+    project.result.reachable = [True, False, False, True, False, False, False]
+    summary = _reachability_text(project)
+    assert "2/7 próbek" in summary
+    assert "2, 3, 5, 6, 7" in summary
+    assert "czerwone punkty" in summary
 
 
 def test_gui_collision_toggle_controls_simulation_checker(monkeypatch):
@@ -320,6 +334,7 @@ def test_main_window_displays_machining_validation_report(monkeypatch):
         dispatch(state, "open_demo")
         window.refresh_all()
         assert window.machining_report_panel.toPlainText() == _report_text(state.last_report)
+        assert "wszystkie osiągalne" in window.machining_reachability_label.text()
         assert "COLLISION_NOT_CHECKED" in window.machining_report_panel.toPlainText()
         assert window.machining_report_dock.windowTitle() == "Projekt obróbki"
     finally:

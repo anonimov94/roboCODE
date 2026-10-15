@@ -18,6 +18,22 @@ def _report_text(report) -> str:
     return report.summary(max_items=max(20, len(report.issues)))
 
 
+def _reachability_text(project) -> str:
+    if project is None or project.result is None:
+        return "Osiągalność: brak obliczonego projektu obróbki."
+    reachable = project.result.reachable
+    total = len(reachable)
+    if total == 0:
+        return "Osiągalność: brak próbek do oceny."
+    count = sum(bool(point_reachable) for point_reachable in reachable)
+    if count == total:
+        return f"Osiągalność: {count}/{total} próbek — wszystkie osiągalne (zielone punkty na ścieżce)."
+    first_unreachable = [str(index + 1) for index, value in enumerate(reachable) if not value][:5]
+    suffix = ", …" if total - count > len(first_unreachable) else ""
+    return (f"Osiągalność: {count}/{total} próbek — pierwsze niedostępne: "
+            f"{', '.join(first_unreachable)}{suffix} (czerwone punkty na ścieżce).")
+
+
 def build_window(state: AppState | None = None):
     from PySide6.QtCore import Qt, QTimer
     from PySide6.QtGui import QAction, QKeySequence
@@ -195,6 +211,7 @@ def build_window(state: AppState | None = None):
     def refresh_all(first: bool = False):
         refresh_tree()
         view.refresh(state, keep_camera=not first and state.view_request is None)
+        machining_reachability.setText(_reachability_text(state.project))
         machining_report.setPlainText(_report_text(state.last_report))
         sync_simulation_controls()
         if state.view_request:
@@ -335,13 +352,20 @@ def build_window(state: AppState | None = None):
     pdock = QDockWidget("Właściwości", win)
     pdock.setWidget(properties_widget)
     win.addDockWidget(Qt.RightDockWidgetArea, pdock)
+    machining_panel = QWidget()
+    machining_layout = QVBoxLayout(machining_panel)
+    machining_reachability = QLabel(_reachability_text(state.project), machining_panel)
+    machining_reachability.setObjectName("machining_reachability")
+    machining_reachability.setWordWrap(True)
+    machining_layout.addWidget(machining_reachability)
     machining_report = QTextBrowser()
     machining_report.setObjectName("machining_validation_report")
     machining_report.setOpenExternalLinks(False)
     machining_report.setPlainText("Brak raportu walidacji.")
+    machining_layout.addWidget(machining_report)
     report_dock = QDockWidget("Projekt obróbki", win)
     report_dock.setObjectName("machining_project_dock")
-    report_dock.setWidget(machining_report)
+    report_dock.setWidget(machining_panel)
     win.addDockWidget(Qt.RightDockWidgetArea, report_dock)
     win.tabifyDockWidget(pdock, report_dock)
     sim_bar = QWidget(win)
@@ -379,6 +403,7 @@ def build_window(state: AppState | None = None):
     simulation_slider.valueChanged.connect(on_simulation_slider)
     simulation_speed_combo.currentIndexChanged.connect(update_simulation_interval)
     win.machining_report_panel = machining_report
+    win.machining_reachability_label = machining_reachability
     win.machining_report_dock = report_dock
     win.edit_properties_button = edit_properties_button
     win.station_tree = tree

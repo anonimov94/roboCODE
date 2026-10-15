@@ -336,7 +336,8 @@ M7→v0.8, M8→v1.0, M9→v0.2 (modele robotów).
    według procedur producenta/zakładu: T1, reduced speed, ręczne zezwolenie, krok po kroku i na sucho.
    Symulacja roboCODE nie jest testem T1 ani funkcją bezpieczeństwa.
 3. Uzupełnienie katalogowych limitów prędkości/przyspieszeń osi i konfiguracji IK Rear/Down.
-4. GUI v0.5: podgląd osiągalności na żywo oraz gizmo edycji w 3D.
+4. GUI v0.5: gizmo edycji w 3D; podgląd osiągalności jest dostępny w panelu projektu i jako
+   zielone/czerwone punkty ścieżki po obliczeniu projektu.
 5. Pełna kontrola kolizji v0.7: geometria siatkowa/FCL, samokolizje i edytor mapy kolizji.
 6. v0.6: orientacja podążająca za ścieżką, remote TCP, makra Python i import krzywych geometrii.
 7. Osie zewnętrzne; następnie kalibracja A↔B w przepływie dual-arm i dwa zsynchronizowane programy.
@@ -371,7 +372,7 @@ sterowanie robotem:
 | Post ABB RAPID | post.abb_rapid | test_review_fixes, test_post_golden, read-back 42 pozy | 🟡 eksport i read-back lokalny OK; RobotStudio nieobecny, składnia niezweryfikowana kompilatorem vendor |
 | Mapowanie zdarzeń na I/O | post.base | test_review_fixes | ✅ gotowe |
 | Przybliżone kolizje kapsuła–prostopadłościan w próbkach trajektorii | collision.checker, program.simulator, pipeline | test_collision | 🟡 ostrzeżenia i API mapy par; GUI ma przełącznik kontroli w symulacji i eksporcie; bez edytora mapy, mesh/FCL, samokolizji i geometrii OEM |
-| GUI (menu, drzewo, 3D, F6 przez walidator) | gui | test_gui_spec, test_render | 🟡 podstawowe okno i panel raportu dostępne; reszta workflow nadal ograniczona bramką T1 |
+| GUI (menu, drzewo, 3D, F6 przez walidator, raport i podgląd osiągalności projektu) | gui | test_gui_spec, test_render | 🟡 podgląd osiągalności po obliczeniu projektu; edycja gizmem i pozostały workflow otwarte |
 | Selekcja elementów sceny z widoku 3D | gui.viewport, gui.render | test_gui_spec, test_render | ✅ kliknięcie pickowalnej geometrii synchronizuje zaznaczenie drzewa i panel właściwości |
 | Edycja nazwy i pozy elementu sceny w GUI | gui.handlers, gui.main_window | test_gui_spec | ✅ panel/aktywacja dwuklikiem; jedna komenda Undo/Redo, walidacja pozy i unieważnianie wyniku CAM |
 | Panel Projektu obróbki z raportem walidacji | gui.main_window, gui.handlers | test_gui_spec (w tym Qt offscreen) | ✅ tab dokowany obok właściwości; pokazuje pełne podsumowanie, lokalizacje NC, próbki, czas i ostrzeżenia; odświeżany po obliczeniu/eksporcie |
@@ -658,7 +659,9 @@ Tryby nawigacji do wyboru w Opcjach (zgodne z popularnymi CAD).
 - **Narzędzie**: poza TCP, rodzic (kołnierz/inne TCP), „Więcej opcji” (skala, przesunięcie geometrii).
 - **Układ**: poza względem rodzica, wybór formatu orientacji, przyciski kopiuj/wklej/odwróć/zeruj.
 - **Cel**: poza + osie, kartezjański/przegubowy, przesuń do celu, konfiguracje.
-- **Projekt obróbki** (dokowalny): wybór robota/układu/narzędzia, wejście ścieżki, zdarzenia,
+- **Projekt obróbki** (dokowalny): podsumowanie liczby osiągalnych próbek z numerami pierwszych
+  próbek niedostępnych; punkty ścieżki są zielone/czerwone po obliczeniu projektu. Wybór robota/
+  układu/narzędzia, wejście ścieżki, zdarzenia,
   najazd/odjazd (Dodaj/Usuń), path-to-tool offset z podglądem i kółkiem myszy, algorytm,
   optymalizacja (±kąt, krok), konfiguracja startowa, przyciski Aktualizuj/Symuluj, status ✓/✗.
 - **Opcje**: Ogólne, Wyświetlanie, Ruch (prędkości symulacji), Program (dzielenie, łuki, inline,

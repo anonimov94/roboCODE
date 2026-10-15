@@ -53,9 +53,10 @@ Manifest: out/Machining.manifest.json
 ```
 
 GUI (opcjonalne zależności `pip install -e .[gui]`): `python -m robocode.cli gui`.
-Dostępne są m.in. panel raportu obróbki, edycja i zaznaczanie elementów, kalibracja z plików
-pomiarowych, oś czasu symulacji oraz przełącznik przybliżonej kontroli kolizji. To ograniczony
-workflow offline; nie jest zatwierdzony do sterowania robotem. GUI nie jest dołączone do EXE.
+Dostępne są m.in. panel raportu obróbki z podsumowaniem osiągalności punktów, edycja i zaznaczanie
+elementów, kalibracja z plików pomiarowych, oś czasu symulacji oraz przełącznik przybliżonej
+kontroli kolizji. To ograniczony workflow offline; nie jest zatwierdzony do sterowania robotem.
+GUI nie jest dołączone do EXE.
 
 ![Widok ogólny](docs/gui_demo.png)
 ![Ścieżka z bliska](docs/gui_path.png)
