@@ -25,6 +25,13 @@ echo Buduje roboCODE.exe ...
     roboCODE.py || goto :error
 
 copy /y "dist\roboCODE.exe" "roboCODE.exe" >nul
+if errorlevel 1 (
+    echo.
+    echo BLAD: nie mozna podmienic roboCODE.exe - jest uruchomiony. Zamknij okno roboCODE i uruchom ponownie.
+    echo Nowa wersja jest w: %CD%\dist\roboCODE.exe
+    pause
+    exit /b 1
+)
 echo.
 echo Gotowe: %CD%\roboCODE.exe
 echo Wyniki programu beda zapisywane w folderze "out" obok exe.
