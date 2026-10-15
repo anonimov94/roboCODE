@@ -204,8 +204,9 @@ Program ──post.generate──► tekst KRL/RAPID w pamięci ──verify_pos
   są wszystkie ogniwa i widoczne obiekty pudełkowe; proxy aktywnego narzędzia pozostaje wyłączone,
   dopóki nie zostanie zaznaczone. Wybór obowiązuje w symulacji GUI i eksporcie F6, jest cofalny,
   ale obecnie nie jest zapisywany w pliku stacji.
-- Trafienie dodaje ostrzeżenie `COLLISION_PROXY` z numerem instrukcji i linią NC; samo nie blokuje eksportu,
-  bo model może dawać fałszywe trafienia i pominięcia. Raport zawsze zawiera też `COLLISION_NOT_CHECKED`,
+- Trafienie to **błąd `COLLISION_PROXY` blokujący eksport** (numer instrukcji i linia NC). Kapsuły ogniw są
+  cienkie (domyślnie 28 mm), więc trafienie oznacza niemal na pewno prawdziwą kolizję; zamierzony kontakt
+  wyłącza się w mapie par. Brak trafienia NIE dowodzi braku kolizji (model niekonserwatywny). Raport zawsze zawiera też `COLLISION_NOT_CHECKED`,
   jasno wskazujące niepełny zakres. Kontrola nie jest funkcją bezpieczeństwa ani zamiennikiem symulatora OEM.
 - Ukryte obiekty są pomijane. Obiekty siatkowe bez `box_size`, samokolizje i strefy mocowań nie są
   sprawdzane; siatki wywołują osobne ostrzeżenie `COLLISION_MESH_NOT_CHECKED`. Domyślnie pomijane jest
@@ -227,9 +228,9 @@ Program ──post.generate──► tekst KRL/RAPID w pamięci ──verify_pos
    i cale), przyspieszenia `SetSpeed` skończone i > 0, zaokrąglenie w zakresie, **osie celu dają zapisaną
    pozę** (≤ 0,05 mm / 0,05°), lista podprogramów wymaganych na sterowniku.
 3. **Trajektoria** — cały program w symulatorze (§6.6). Przy błędach danych symulacja jest pomijana z błędem
-   `SIM_SKIPPED`. Dla próbek MoveL/MoveC raport INFO `CONTOUR_DEVIATION` podaje maksymalną i średnią
-   odchyłkę pozycji TCP od punktu zadanego interpolatorowi [mm] oraz liczbę próbek; MoveJ jest pomijany.
-   To metryka symulatora, nie certyfikat dokładności fizycznego robota. INFO `ACCELERATION_ASSUMED`
+   `SIM_SKIPPED`. Dla próbek MoveL/MoveC raport INFO `IK_TRACKING_RESIDUAL` podaje maksymalne i średnie
+   rezyduum IK (FK(q) vs zadana poza interpolatora) [mm]. To **nie jest** odchyłka od konturu CAM
+   (cięciwy łuków, zagęszczanie) — ta metryka pozostaje do zrobienia (§10.1). INFO `ACCELERATION_ASSUMED`
    ujawnia domyślne przyspieszenia użyte do szacowania cyklu.
 4. **Post (odczyt zwrotny)** — wygenerowany tekst KRL/RAPID jest parsowany z powrotem: pozy porównywane
    z programem (≤ 0,01 mm / 0,01°), osie PTP/MoveAbsJ (≤ 0,001°). Wyłapuje błędy konwencji Eulera/kwaternionów
@@ -240,7 +241,7 @@ Program ──post.generate──► tekst KRL/RAPID w pamięci ──verify_pos
 Kody błędów (stałe, do automatyzacji): `NC_PARSE, EMPTY, NO_ROBOT, MISSING_SETFRAME, MISSING_SETTOOL,
 BAD_POSE, BAD_JOINTS, JOINT_LIMIT, SPEED_RANGE, JOINT_SPEED_RANGE, ROUNDING_RANGE, TARGET_MISMATCH,
 UNREACHABLE, CONFIG_JUMP, MOVEC_DEGENERATE, SIM_SKIPPED, POST_COUNT, POST_MISMATCH, POST_JOINT_COUNT,
-POST_JOINT_MISMATCH, STATION`. Informacja: `CONTOUR_DEVIATION`. Ostrzeżenia: `PARSER, NEAR_JOINT_LIMIT,
+POST_JOINT_MISMATCH, STATION, COLLISION_PROXY, PROGRAM_SPLIT`. Informacja: `IK_TRACKING_RESIDUAL`. Ostrzeżenia: `PARSER, NEAR_JOINT_LIMIT,
 SINGULARITY, JOINT_SPEED, CONFIG_DIFFERS,
 CONTROLLER_SUBPROGRAMS, COLLISION_NOT_CHECKED` (obecne, gdy pełna kontrola kolizji nie jest dostępna),
 `TOOL_LOAD_DEFAULT` (ABB), `STALE_OUTPUT`.
@@ -284,10 +285,14 @@ deklaracja `$APO`/zone per ruch. **Test tekstowy nie zastępuje walidacji na doc
 
 ### 9.2 Dzielenie długich programów
 
-- API `export_program`/`run_job` ma `max_lines_per_file`; CLI `robocode machine` przyjmuje
-  `--max-lines-per-file` (domyślnie 5000, wartość dodatnia).
-- Podział następuje wyłącznie na granicach instrukcji. Każdy plik ma własny nagłówek/procedurę,
-  a przed dalszą częścią odtwarzany jest ostatni `SetFrame`, `SetTool`, prędkość i zaokrąglenie.
+- **Podział jest opcjonalny** (domyślnie brak): API `max_lines_per_file`, CLI `--max-lines-per-file N`.
+  Bez podziału program > 5000 linii dostaje ostrzeżenie `PROGRAM_LONG`.
+- Podział następuje wyłącznie na granicach ruchów, z **sekwencją bezpiecznego wznowienia**: każda część
+  od drugiej zaczyna od `SetFrame`/`SetTool`/prędkości/zaokrąglenia, aktywnych zdarzeń (narzędzie,
+  obroty, włączenie wrzeciona), PTP do punktu 50 mm nad pierwszym celem wzdłuż osi narzędzia i
+  zagłębienia LIN; każda część poza ostatnią kończy się odjazdem LIN o 50 mm. Każda część (z dodanymi
+  ruchami) jest osobno walidowana w symulatorze; nieosiągalny punkt wznowienia = błąd `PROGRAM_SPLIT`.
+  Liczenie linii jest liniowe (O(n)).
   Pliki dostają sufiksy `_001`, `_002` itd.; każdy jest osobno odczytywany zwrotnie, zapisany atomowo
   i wpisany do manifestu z sumą SHA-256.
 - Raport ostrzega o podziale i o pozostawionych częściach z poprzedniego eksportu. Nie ma automatycznego
@@ -449,6 +454,20 @@ z uzasadnieniem.
 | Grok | z1 nie istnieje w RAPID | ❌ z1 jest predefiniowane |
 | Grok | `$ACT_TOOL`/`BAS(#TOOL,n)` | ❌ celowo nie nadpisujemy tablic TOOL_DATA/BASE_DATA sterownika |
 | Grok | znak kwaternionu, `joint_sign` | ❌ już obsłużone (w>0; znaki osi w modelu kinematycznym) |
+
+### 13.3 Przegląd zmian Copilota (14 commitów na `main`, 15.10.2026)
+
+| Zmiana Copilota | Ocena | Decyzja |
+|---|---|---|
+| IK analityczne 6R + etykiety F/R U/D F/N, wybór konfiguracji startowej | ✅ pozytywna | zostaje |
+| model UR5e z ROS-Industrial (source + license) | ✅ pozytywna | zostaje |
+| golden files KRL/RAPID, dane obciążenia narzędzia `--tool-load`, profile przyspieszeń | ✅ pozytywna | zostaje |
+| kalibracje w CLI/GUI, edytor właściwości, gizmo, selekcja 3D, oś czasu, mapa kolizji | ✅ pozytywna (GUI odmrożone wbrew D1 — przyjęte) | zostaje |
+| kolizje przez kapsuły i prostopadłościany | ✅ dobra baza, **ale trafienie było tylko ostrzeżeniem** | 🔧 poprawione: `COLLISION_PROXY` blokuje eksport |
+| dzielenie programu domyślnie przy 5000 linii | ❌ **niebezpieczne**: część 2+ zaczynała od LIN w materiale bez wrzeciona; złożoność O(n²) | 🔧 poprawione: opcjonalne, sekwencja wznowienia, walidacja części, O(n) |
+| metryka `CONTOUR_DEVIATION` „odchyłka konturu” | ⚠ myląca: mierzyła tylko rezyduum IK (~0) | 🔧 przemianowana na `IK_TRACKING_RESIDUAL`; prawdziwa odchyłka konturu wraca do TODO |
+| `roboCODE.exe` (23 MB) commitowany 5 razy mimo `.gitignore` | ❌ rozdęcie repo (~115 MB historii) | 🔧 usunięty ze śledzenia; historia bez zmian (przepisanie wymaga zgody) |
+| commity bezpośrednio na `main` z pominięciem PR #1 | ⚠ proces | PR #1 do zamknięcia (treść jest w `main`) |
 
 ## 14. Definicja ukończenia funkcji
 

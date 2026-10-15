@@ -75,20 +75,34 @@ def test_posts_emit_configured_tool_load(post_name, expected):
 
 
 @pytest.mark.parametrize("post_name", ["kuka", "abb"])
-def test_post_splits_program_at_instruction_boundaries_and_carries_state(post_name):
+def test_post_split_has_safe_restart_sequence(post_name):
+    """Review of the Copilot change: parts 2+ must not start with LIN inside the material, nor without
+    the spindle; parts 1..n-1 must end with a retract. Every part reads back cleanly."""
+    from robocode.demo import DEMO_NC, build_demo_station
+    from robocode.machining.nc_parser import parse_gcode
+    from robocode.machining.solver import MachiningSettings, solve
+    st, r, fr, tool = build_demo_station()
+    prog = solve(r, r.frame_rel_base(fr), tool.tcp(), parse_gcode(DEMO_NC), MachiningSettings()).program
     post = get_post(post_name)
-    parts = post.generate_chunks(golden_program(), max_lines=14)
-
+    parts = post.generate_chunks(prog, max_lines=30)
     assert len(parts) > 1
-    assert all(len(text.splitlines()) <= 14 for _, text in parts)
+    assert all(len(text.splitlines()) <= 30 for _, text in parts)
     assert all(part.name.endswith(f"_{i:03d}") for i, (part, _) in enumerate(parts, 1))
-    for part, text in parts:
+    ptp, lin = ("PTP ", "LIN ") if post_name == "kuka" else ("MoveAbsJ ", "MoveL ")
+    spindle = "SpindleOn" if post_name == "kuka" else "SpindleOn;"
+    for k, (part, text) in enumerate(parts):
         assert verify_post_output(post_name, text, part).ok
-    combined = "\n".join(text for _, text in parts)
-    move_prefixes = ("PTP ", "LIN ", "CIRC ") if post_name == "kuka" else ("MoveAbsJ ", "MoveL ", "MoveC ")
-    assert sum(line.lstrip().startswith(move_prefixes) for line in combined.splitlines()) == 3
-    for _, text in parts[1:]:
-        if post_name == "kuka":
-            assert "$BASE =" in text and "$TOOL =" in text and "$VEL.CP =" in text
-        else:
-            assert "rcWobj.uframe :=" in text and "rcTool.tframe :=" in text
+        lines = [ln.strip() for ln in text.splitlines()]
+        moves = [ln for ln in lines if ln.startswith((ptp, lin))]
+        if k > 0:
+            assert moves[0].startswith(ptp), "part must start with a joint move above the path"
+            first_lin = next(i for i, ln in enumerate(lines) if ln.startswith(lin))
+            assert any(spindle in ln for ln in lines[:first_lin]), "spindle must be re-enabled before cutting"
+        if k < len(parts) - 1:
+            assert moves[-1].startswith(lin)
+            assert getattr(part.instructions[-1], "inserted_by_split", False), "part must end with a retract"
+
+
+def test_post_split_without_robot_is_refused():
+    with pytest.raises(ValueError):
+        get_post("kuka").generate_chunks(golden_program(), max_lines=14)

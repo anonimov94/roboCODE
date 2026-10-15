@@ -2,96 +2,89 @@
  roboCODE  -  ROADMAP / TODO                        stan na: 2026-10-15 (czw)
 =============================================================================
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
- Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
- Kod: 0.2.0.dev0 | 195 testów | roboCODE.exe (23 351 525 B) przebudowane i sprawdzone (Windows)
+           (C) = zrobione przez Copilota i sprawdzone   (!) = poprawione po przegladzie
+ Szczegoly: docs/SPECYFIKACJA.md (10, 11, 13.2 przeglad botow, 13.3 przeglad Copilota)
+ Kod: 0.2.0.dev0 | 189 testow OK (+8 GUI pominietych bez Qt) | galaz fix/copilot-review
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
- |  [x] struktura pakietu, pozy 4x4, Euler / kwaterniony, Kabsch
- |  [x] scena (drzewo stacji) + undo/redo + zapis .rcs.json
- |  [x] CLI, pytest
+ |  [x] pakiet, pozy 4x4, Euler / kwaterniony, Kabsch, scena, undo/redo, CLI
  |
  v0.2  CORE - kinematyka i stacja                   [#########-]  90%
- |  [x] model DH 6R: FK, Jakobian, manipulowalnosc
- |  [x] IK numeryczne z jawnym statusem (ok / brak zbieznosci / limity)
- |  [x] lista konfiguracji: etykiety Front/Rear, Up/Down, Flip/NoFlip dla galezi analitycznych 6R
- |  [x] biblioteka robotow .robot.json (pola source + license)
- |  [x] IK analityczne 6R (nadgarstek sferyczny) + test 8 konfiguracji
- |  [x] model UR5e z ROS-Industrial URDF -> .robot.json (nominalny)
- |  [ ]      limity predkosci/przyspieszen osi z karty katalogowej
+ |  [x] DH 6R: FK, Jakobian, manipulowalnosc, IK numeryczne ze statusem
+ |  [x] (C) IK analityczne 6R (nadgarstek sferyczny), 8 konfiguracji F/R U/D F/N
+ |  [x] (C) model UR5e z ROS-Industrial (source + license)
+ |  [ ] >>4  limity predkosci/przyspieszen osi z kart katalogowych
+ |  [ ]      drugi model (KUKA KR lub ABB IRB) z legalnego zrodla
  |
  v0.3  MVP MACHINING - G-code -> program robota     [#########-]  90%
- |  [x] parser NC ze stanem modalnym (G0-G4, G17-19, G20/21, G90/91,
- |      luki IJK/R, glowica A/B, wektor IJK), tryb scisly z nr linii
- |  [x] solver: obrot wokol Z, najazd/odjazd, zageszczanie orientacji
- |  [x] CLI: demo / machine / samples / report
- |  [ ] >>1  wczytanie programu w WorkVisual (KUKA) i RobotStudio (ABB) - blokada: brak tych narzedzi w srodowisku
- |  [x]      wybor konfiguracji startowej z listy rozwiazan IK (CLI/API)
+ |  [x] parser NC modalny, tryb scisly, solver (obrot Z, najazd/odjazd)
+ |  [x] (C) wybor konfiguracji startowej z listy IK (CLI/API)
+ |  [ ] >>1  wczytanie programu w WorkVisual (KUKA) / RobotStudio (ABB)  [TY]
  |
- v0.4  SIMULATION & POST                            [#########-]  95%
- |  [x] symulacja calej trajektorii (MoveJ, MoveL, MoveC jako luk)
- |  [x] centralny walidator + blokada eksportu przy bledach
- |  [x] odczyt zwrotny KRL/RAPID (pozy + osie), manifest, zapis atomowy
- |  [x] posty KUKA KRL / ABB RAPID, mapowanie zdarzen na I/O (--events)
- |  [x] poprawki z przegladu ChatGPT / Gemini / Grok (SPECYFIKACJA 13.2)
- |  [x] golden files - wzorcowe pliki KRL i RAPID w testach
- |  [x] odchylka konturu: FK TCP vs zadana sciezka MoveL/MoveC [mm]
- |  [x]      estymacja czasu cyklu z profilami trapezowymi (przyspieszenia osiowe i liniowe)
- |  [x]      konfigurowalne dane obciazenia narzedzia (ABB tooldata, KUKA; API/CLI --tool-load)
- |  [x]      dzielenie dlugich programow (limit CLI/API, zachowanie stanu modalnego, manifest)
- |  [ ] >>4  pierwszy test na prawdziwym robocie (T1, zredukowana predkosc) - zablokowany: brak sterownika OEM, robota i konfiguracji celi w srodowisku
+ v0.4  SIMULATION & POST                            [########--]  85%
+ |  [x] symulacja calej trajektorii, walidator, blokada eksportu, manifest
+ |  [x] odczyt zwrotny KRL/RAPID (pozy + osie), mapowanie zdarzen --events
+ |  [x] (C) golden files KRL/RAPID, obciazenie narzedzia --tool-load
+ |  [x] (C) czas cyklu z profilami trapezowymi (przyspieszenia)
+ |  [x] (C!) dzielenie programu: teraz OPCJONALNE, z bezpiecznym wznowieniem
+ |           (wrzeciono + PTP nad sciezka + zaglebienie, odjazd na koncu czesci),
+ |           kazda czesc walidowana, liczenie linii O(n)
+ |  [ ] >>2  PRAWDZIWA odchylka konturu: sciezka CAM (luki!) vs tor TCP [mm]
+ |           (metryka Copilota mierzyla tylko rezyduum IK -> IK_TRACKING_RESIDUAL)
+ |  [ ] >>3  pierwszy test na robocie (T1, zredukowana predkosc)  [TY]
  |
- ---- MVP wymaga jeszcze walidacji vendor i testu T1; GUI odblokowane czesciowo ----------
+ ---- koniec MVP: punkty 1-3 ------------------------------------------------
  |
- v0.5  USABLE GUI                (CZESCIOWO ODMROZONE) [########--]  80%
- |  [x] okno, menu/pasek z actions.py, drzewo, widok 3D, F6 przez walidator, dodanie modelu z biblioteki
- |  [x] panel Projektu obrobki pokazujacy raport walidacji (odswiezany po aktualizacji i eksporcie)
- |  [x]      edycja nazwy/pozy (Undo/Redo), selekcja 3D, gizmo translacji/obrotu dla ukladow, obiektow i TCP
- |  [x]      animacja symulacji: play/pauza/stop, suwak probek, 1x/5x/20x/100x, pozycja startowa
- |  [x]      podglad osiagalnosci w panelu Projektu obrobki + kolory punktow sciezki
+ v0.5  USABLE GUI          (odmrozone przez Copilota) [########--]  80%
+ |  [x] (C) panel Projektu obrobki z raportem, edytor wlasciwosci (undo),
+ |          selekcja 3D, gizmo, os czasu symulacji, podglad osiagalnosci,
+ |          dodawanie robota z biblioteki, edytor mapy kolizji
+ |  [ ] >>6  zapis mapy kolizji i ustawien projektu w pliku stacji (.rcs.json)
+ |  [ ]      GUI w roboCODE.exe (osobny build z Qt) albo instalator
  |
  v0.6  ADVANCED MACHINING                           [###-------]  30%
- |  [x] matematyka kalibracji TCP / ukladu (coop/calibration.py)
- |  [x] kalibracje TCP, baz i układu 3-punktowego w CLI (JSON, walidacja, zapis atomowy)
- |  [x] kalibracje TCP/baz/układu w GUI (JSON, podglad RMS, potwierdzenie, Undo/Redo)
- |  [ ]      orientacja: podazanie za sciezka, remote TCP (robot trzyma detal)
- |  [ ]      makra Python, import krzywych z geometrii
+ |  [x] (C) kalibracje TCP / baz / ukladu 3-pkt w CLI i GUI
+ |  [ ] >>7  orientacja: podazanie za sciezka, remote TCP (robot trzyma detal)
+ |  [ ]      makra Python, import krzywych z geometrii (STEP/STL)
  |
  v0.7  ROBUSTNESS                                   [###-------]  30%
- |  [~] >>6  przybliżone kolizje: kapsuły ogniw vs prostopadłościany,
- |           próbki trajektorii, przełącznik i edytor mapy par w GUI/API
- |  [ ]      pełna geometria mesh/FCL, samokolizje i osie zewnetrzne
+ |  [x] (C!) przyblizone kolizje kapsuly vs prostopadlosciany - trafienie
+ |           teraz BLOKUJE eksport (bylo tylko ostrzezeniem)
+ |  [ ] >>5  pelna geometria (mesh STL, python-fcl), samokolizje, narzedzie
+ |  [ ] >>8  osie zewnetrzne: szyna, pozycjoner
  |
- v0.8  DUAL-ARM (wyroznik)        (eksperyment)     [#---------]   5%
- |  [~] prototyp solvera A trzyma detal / B wrzeciono (coop/dual_arm.py)
- |  [ ]      kalibracja baz A<->B w przeplywie, podzial ruchu
- |  [ ]      dwa zsynchronizowane programy
+ v0.8  DUAL-ARM (wyroznik)                          [#---------]   5%
+ |  [~] prototyp solvera A trzyma detal / B wrzeciono
+ |  [ ] >>9  kalibracja baz A<->B w przeplywie, podzial ruchu,
+ |           dwa zsynchronizowane programy, walidacja kolizji A-B
  |
  v1.0  PRODUCTION                                   [----------]   0%
-    [ ]      dokumentacja uzytkownika, wiecej postow (Fanuc, Yaskawa)
-    [ ]      sterownik online (opcja), instalator
+    [ ] >>10 dokumentacja uzytkownika, posty Fanuc / Yaskawa,
+             sterownik online (opcja), instalator, wydanie 1.0
 
 =============================================================================
- NARZEDZIA I INFRASTRUKTURA
-   [x] raport HTML z manifestu          [x] przykladowe programy NC
-   [x] launcher + roboCODE.exe (build 2026-10-15 19:01; help i demo KUKA/ABB smoke-tested)
-   [x] test_exe.bat (12/12 OK, poprzedni test)
-   [x] konfiguracje PyCharm (.run)      [x] plik CI (GitHub Actions)
-   [x] workflow CI w .github/workflows/ci.yml
-   [ ] udany przebieg CI na GitHub - znana blokada rozliczen konta; ostatnie joby zakonczyly sie przed krokami (brak logow)
-   [ ] scalic PR #1 (galaz poc-0.2) do main
+ PORZADKI PO COPILOCIE (zrobione na galezi fix/copilot-review)
+   [x] roboCODE.exe usuniete ze sledzenia git (byl commitowany 5x, ~115 MB)
+   [x] kolizja wykryta = blad blokujacy eksport
+   [x] bezpieczne dzielenie programu (patrz v0.4)
+   [x] uczciwa nazwa metryki IK_TRACKING_RESIDUAL
+   [ ] scalic PR z poprawkami do main; zamknac PR #1 (tresc jest juz w main)
+   [ ] zasada: dalsze zmiany przez PR, nie bezposrednio na main
+   [ ] odblokowac GitHub Actions (blokada rozliczen konta)          [TY]
+   [ ] (opcja) przepisac historie git, aby usunac 115 MB exe    [decyzja]
 =============================================================================
- KOLEJKA - CO ROBIC TERAZ (od gory):
+ KOLEJKA DO KONCA PROJEKTU (od gory):
 
-   1. weryfikacja importu/kompilacji WorkVisual / RobotStudio
-      - lokalne eksporty i read-back KRL/RAPID OK; blokada: brak aplikacji vendor
-   2. test na robocie T1, zredukowana predkosc
-      - blokada: brak robota, sterownika OEM, zatwierdzonej celi i nadzorujacego operatora
-   3. limity predkosci/przyspieszen osi z kart katalogowych + uzupelnienie konfiguracji Rear/Down
-   4. GUI v0.5: dalsze usprawnienia workflow; podglad osiagalnosci i gizmo dostepne offline
-   5. kolizje v0.7: geometria mesh/FCL, samokolizje i osie zewnetrzne
-   6. v0.6: orientacja podazajaca za sciezka / remote TCP, makra Python i import krzywych
-   7. osie zewnetrzne; potem integracja przeplywu dual-arm i eksport dwoch programow
-   8. v1.0: dokumentacja uzytkownika, posty Fanuc/Yaskawa, opcjonalny driver i instalator
-   9. infrastruktura: odblokowac CI po naprawie rozliczen; rozstrzygnac otwarty PR #1
+   1. WorkVisual / RobotStudio: wczytac i skompilowac programy ...... [TY]
+   2. prawdziwa odchylka konturu CAM vs TCP ......................... v0.4
+   3. test na robocie T1 ............................................ [TY]
+   ---------------------------------------------------- koniec MVP
+   4. limity osi z kart katalogowych + drugi model robota ........... v0.2
+   5. kolizje na pelnej geometrii (FCL), samokolizje, narzedzie ..... v0.7
+   6. zapis mapy kolizji / projektu w pliku stacji .................. v0.5
+   7. orientacja follow-path / remote TCP, makra, import krzywych ... v0.6
+   8. osie zewnetrzne (szyna, pozycjoner) ........................... v0.7
+   9. dual-arm: kalibracja A<->B, podzial ruchu, 2 programy ......... v0.8
+  10. dokumentacja, posty Fanuc/Yaskawa, instalator, wydanie ........ v1.0
 =============================================================================

@@ -137,10 +137,12 @@ def validate_program(program: Program, limits: ValidationLimits | None = None,
     sim = simulate(program, tol=tol, restore_joints=True, collision_checker=collision_checker)
     rep.extend(sim.report)
     if sim.contour_samples:
-        rep.add(INFO, "CONTOUR_DEVIATION",
-                f"Odchyłka konturu TCP: maks. {sim.max_contour_deviation_mm:.4f} mm, "
-                f"średnia {sim.mean_contour_deviation_mm:.4f} mm "
-                f"({sim.contour_samples} próbek MoveL/MoveC)",
+        # honest naming (review of the Copilot change): this compares FK(q) with the INTERPOLATED robot
+        # pose, i.e. the IK tracking residual – NOT the deviation from the CAM contour (arc chords etc.)
+        rep.add(INFO, "IK_TRACKING_RESIDUAL",
+                f"Rezyduum śledzenia TCP przez IK: maks. {sim.max_contour_deviation_mm:.4f} mm, "
+                f"średnia {sim.mean_contour_deviation_mm:.4f} mm ({sim.contour_samples} próbek MoveL/MoveC); "
+                "to NIE jest odchyłka od konturu CAM",
                 stage="trajectory")
     root = program.robot
     while root.parent is not None:

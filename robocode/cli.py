@@ -57,8 +57,8 @@ def main(argv=None):
                    help='JSON: zdarzenie -> kod sterownika, np. {"SpindleOn": "$OUT[1] = TRUE"}')
     m.add_argument("--tool-load", default=None,
                    help="JSON obciążenia narzędzia: mass_kg, cog_mm [x,y,z], inertia_kg_m2 [Ix,Iy,Iz]")
-    m.add_argument("--max-lines-per-file", type=int, default=5000,
-                   help="maksymalna liczba linii programu sterownika w pliku (domyślnie: 5000)")
+    m.add_argument("--max-lines-per-file", type=int, default=None,
+                   help="podziel program na części po max N linii (z bezpiecznym wznowieniem); domyślnie bez podziału")
     m.add_argument("--list-start-configurations", action="store_true",
                    help="wypisz konfiguracje IK (etykiety F/R, U/D, F/N) dla pierwszego punktu i zakończ")
     m.add_argument("--start-config", type=int, default=None,
