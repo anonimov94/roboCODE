@@ -93,6 +93,19 @@ def test_simulation_timeline_widget_seeks_and_plays(monkeypatch):
         window.refresh_all()
         assert window.simulation_slider.isEnabled()
         assert window.simulation_slider.maximum() == len(state.last_sim.joints) - 1
+        interval_at_5x = window.simulation_timer.interval()
+        window.simulation_speed_combo.setCurrentIndex(3)
+        assert window.simulation_speed_combo.currentData() == 100
+        assert window.simulation_timer.interval() < interval_at_5x
+        expected_100x_interval = max(
+            1, round(state.last_sim.cycle_time_s * 1000 / (len(state.last_sim.joints) - 1) / 100)
+        )
+        assert window.simulation_timer.interval() == expected_100x_interval
+        window.simulation_speed_combo.setCurrentIndex(1)
+        window.qactions["prog.fast_sim"].trigger()
+        assert window.simulation_speed_combo.currentData() == 100
+        window.qactions["prog.fast_sim"].trigger()
+        assert window.simulation_speed_combo.currentData() == 5
 
         window.simulation_slider.setValue(1)
         assert state.simulation_index == 1

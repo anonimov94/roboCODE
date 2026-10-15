@@ -2,6 +2,7 @@
 Uruchom: python -m robocode.cli gui   (wymaga: pip install -e .[gui])"""
 from __future__ import annotations
 
+import math
 import sys
 
 from . import actions as ACT
@@ -22,6 +23,7 @@ def build_window(state: AppState | None = None):
     from PySide6.QtGui import QAction, QKeySequence
     from PySide6.QtWidgets import (
         QApplication,
+        QComboBox,
         QDialog,
         QDialogButtonBox,
         QDockWidget,
@@ -123,7 +125,20 @@ def build_window(state: AppState | None = None):
         simulation_label.setText(
             f"Próbka {state.simulation_index + 1}/{count}" if count else "Brak symulacji"
         )
+        update_simulation_interval()
         simulation_slider.blockSignals(False)
+
+    def update_simulation_interval(_index=None):
+        sim = state.last_sim
+        count = len(sim.joints) if sim is not None and sim.ok else 0
+        if count < 2:
+            return
+        cycle_time = float(sim.cycle_time_s)
+        if not math.isfinite(cycle_time) or cycle_time <= 0:
+            return
+        speed_factor = simulation_speed_combo.currentData()
+        interval_ms = round(cycle_time * 1000 / (count - 1) / speed_factor)
+        simulation_timer.setInterval(max(1, min(60_000, interval_ms)))
 
     def refresh_robot_properties():
         if state.selection and state.selection[0] is state.simulation_robot:
@@ -231,6 +246,8 @@ def build_window(state: AppState | None = None):
         elif cmd == "stop_sim":
             simulation_timer.stop()
             play_button.setText("▶ Odtwarzaj")
+        elif cmd == "toggle_fast_sim":
+            simulation_speed_combo.setCurrentIndex(3 if state.fast_sim else 1)
         win.statusBar().showMessage(msg, 8000)
         refresh_all()
         if cmd in {"open_demo", "new_machining_project", "update_machining",
@@ -329,9 +346,15 @@ def build_window(state: AppState | None = None):
     play_button = QPushButton("▶ Odtwarzaj", sim_bar)
     stop_button = QPushButton("■ Stop", sim_bar)
     simulation_label = QLabel("Brak symulacji", sim_bar)
+    simulation_speed_combo = QComboBox(sim_bar)
+    for speed_factor in (1, 5, 20, 100):
+        simulation_speed_combo.addItem(f"{speed_factor}×", speed_factor)
+    simulation_speed_combo.setCurrentIndex(1)
     controls_layout.addWidget(play_button)
     controls_layout.addWidget(stop_button)
     controls_layout.addWidget(simulation_label)
+    controls_layout.addWidget(QLabel("Prędkość:", sim_bar))
+    controls_layout.addWidget(simulation_speed_combo)
     simulation_slider = QSlider(Qt.Horizontal, sim_bar)
     simulation_slider.setEnabled(False)
     sim_layout.addLayout(controls_layout)
@@ -350,6 +373,7 @@ def build_window(state: AppState | None = None):
 
     stop_button.clicked.connect(stop_simulation_playback)
     simulation_slider.valueChanged.connect(on_simulation_slider)
+    simulation_speed_combo.currentIndexChanged.connect(update_simulation_interval)
     win.machining_report_panel = machining_report
     win.machining_report_dock = report_dock
     win.edit_properties_button = edit_properties_button
@@ -360,6 +384,7 @@ def build_window(state: AppState | None = None):
     win.simulation_play_button = play_button
     win.simulation_stop_button = stop_button
     win.simulation_label = simulation_label
+    win.simulation_speed_combo = simulation_speed_combo
     win.simulation_timer = simulation_timer
 
     win.statusBar().showMessage("Gotowy. Plik → Otwórz demo obróbki, albo Ctrl+M z własnym plikiem NC.")

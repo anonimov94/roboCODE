@@ -47,7 +47,7 @@
  |  [x] okno, menu/pasek z actions.py, drzewo, widok 3D, F6 przez walidator
  |  [x] panel Projektu obrobki pokazujacy raport walidacji (odswiezany po aktualizacji i eksporcie)
  |  [~]      edycja nazwy/pozy (Undo/Redo), selekcja elementow sceny w 3D; gizmo nadal otwarte
- |  [x]      animacja symulacji: play/pauza/stop, suwak probek, przywrocenie pozycji startowej
+ |  [x]      animacja symulacji: play/pauza/stop, suwak probek, 1x/5x/20x/100x, pozycja startowa
  |  [ ]      podglad osiagalnosci na zywo, gizmo edycji w 3D
  |
  v0.6  ADVANCED MACHINING                           [###-------]  30%

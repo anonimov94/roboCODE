@@ -371,7 +371,7 @@ M7→v0.8, M8→v1.0, M9→v0.2 (modele robotów).
 | Selekcja elementów sceny z widoku 3D | gui.viewport, gui.render | test_gui_spec, test_render | ✅ kliknięcie pickowalnej geometrii synchronizuje zaznaczenie drzewa i panel właściwości |
 | Edycja nazwy i pozy elementu sceny w GUI | gui.handlers, gui.main_window | test_gui_spec | ✅ panel/aktywacja dwuklikiem; jedna komenda Undo/Redo, walidacja pozy i unieważnianie wyniku CAM |
 | Panel Projektu obróbki z raportem walidacji | gui.main_window, gui.handlers | test_gui_spec (w tym Qt offscreen) | ✅ tab dokowany obok właściwości; pokazuje pełne podsumowanie, lokalizacje NC, próbki, czas i ostrzeżenia; odświeżany po obliczeniu/eksporcie |
-| Oś czasu symulacji GUI | gui.main_window, gui.handlers | test_gui_spec (Qt offscreen) | ✅ play/pauza, Stop przywracający początkowe osie, przewijanie próbek i aktualizacja widoku; stałe tempo podglądu |
+| Oś czasu symulacji GUI | gui.main_window, gui.handlers | test_gui_spec (Qt offscreen) | ✅ play/pauza, Stop przywracający początkowe osie, przewijanie próbek, regulacja tempa i aktualizacja widoku |
 | Kalibracja TCP / układu / baz A↔B | coop.calibration | test_machining, test_gui_spec | 🟡 matematyka, CLI i przepływ GUI gotowe; brak interfejsu odczytu pozycji z robota |
 | CLI kalibracji z JSON (TCP, bazy, układ 3-punktowy) | robocode calibrate | test_calibration_cli | ✅ walidacja danych, RMS, atomowy zapis wyniku |
 | Dual-arm | coop.dual_arm | — | 🧪 eksperymentalne |
@@ -548,8 +548,10 @@ Zachowania:
 - Współczynnik prędkości symulacji (domyślnie 5x, szybki tryb 100x).
 - Ślad TCP (trace), czas cyklu, sprawdzanie kolizji w trakcie (obiekty w kolizji na czerwono).
 - W GUI dostępne jest podstawowe odtwarzanie udanej symulacji: play/pauza, Stop i przewijanie
-  próbek suwakiem. Stop przywraca pozycję osi sprzed obliczenia; zmiana stacji lub unieważnienie
-  projektu/programu usuwa nieaktualne próbki. Tempo podglądu jest obecnie stałe i nie oznacza czasu cyklu.
+  próbek suwakiem. Wybór 1×/5×/20×/100× wyznacza odstęp timera z czasu cyklu i liczby próbek;
+  ograniczenia timera mogą odbiegać od rzeczywistego czasu. Stop przywraca pozycję osi sprzed
+  obliczenia; zmiana stacji lub unieważnienie projektu/programu usuwa nieaktualne próbki.
+  Odtwarzanie jest podglądem offline, a nie czasem rzeczywistym sterownika.
 
 ### B1.9 Generowanie programu (post-procesory)
 - Generuj (F6), generuj jako… (Shift+F6), wyślij do robota (Ctrl+F6, FTP), wybór post-procesora per robot.
@@ -614,9 +616,10 @@ GUI bez uruchamiania Qt.
   wybierane. Zaznaczenie w drzewie działa również bez dostępnego renderera 3D.
 - Dwuklik elementu drzewa otwiera edytor nazwy i pozy. Gizmo do przesuwania/obracania w widoku 3D
   nadal pozostaje do wdrożenia.
-- Oś czasu symulacji udostępnia play/pauzę, Stop, suwak próbek i licznik bieżącej próbki.
-  Sterowanie jest aktywne po udanej symulacji; odtwarzanie aktualizuje podgląd 3D, a Stop
-  przywraca pozycję początkową robota.
+- Oś czasu symulacji udostępnia play/pauzę, Stop, suwak próbek, licznik bieżącej próbki i wybór
+  prędkości 1×/5×/20×/100× (domyślnie 5×); akcja „Szybka symulacja” ustawia 100×, a wyłączenie
+  wraca do 5×. Sterowanie jest aktywne po udanej symulacji;
+  odtwarzanie aktualizuje podgląd 3D, a Stop przywraca pozycję początkową robota.
 
 ### B2.2 Menu
 | Menu | Pozycje |
