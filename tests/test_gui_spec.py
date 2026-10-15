@@ -53,6 +53,52 @@ def test_machining_project_updates_validation_report_and_panel_text():
     assert "Brak raportu walidacji" in _report_text(None)
 
 
+def test_gui_collision_toggle_controls_simulation_checker(monkeypatch):
+    from robocode.program import simulator
+
+    state = AppState()
+    dispatch(state, "open_demo")
+    real_simulate = simulator.simulate
+    seen_checkers = []
+
+    def capture_checker(program, **kwargs):
+        checker = kwargs["collision_checker"]
+        seen_checkers.append(checker)
+        return real_simulate(program, **kwargs)
+
+    monkeypatch.setattr(simulator, "simulate", capture_checker)
+    assert state.collisions_enabled
+    dispatch(state, "simulate_program")
+    assert seen_checkers[-1].pairs is None
+
+    assert "wył." in dispatch(state, "toggle_collisions")
+    dispatch(state, "simulate_program")
+    assert seen_checkers[-1].pairs == set()
+    assert "wł." in dispatch(state, "toggle_collisions")
+
+
+def test_gui_collision_toggle_is_passed_to_exporter(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    from robocode import pipeline
+    from robocode.program.report import ValidationReport
+
+    state = AppState()
+    dispatch(state, "open_demo")
+    captured = {}
+
+    def capture_export(program, post, out_dir, **kwargs):
+        captured.update(kwargs)
+        return SimpleNamespace(
+            ok=True, report=ValidationReport(), message="Zapisano",
+            outputs=[tmp_path / "Machining.src"],
+        )
+
+    monkeypatch.setattr(pipeline, "export_program", capture_export)
+    state.collisions_enabled = False
+    dispatch(state, "generate_program", str(tmp_path))
+    assert captured["collision_checker"].pairs == set()
+
+
 def test_simulation_timeline_seek_and_stop_restore_initial_robot_pose():
     state = AppState()
     dispatch(state, "open_demo")
@@ -89,6 +135,13 @@ def test_simulation_timeline_widget_seeks_and_plays(monkeypatch):
     dispatch(state, "open_demo")
     app, window = build_window(state)
     try:
+        collision_action = window.qactions["tools.collisions"]
+        assert collision_action.isChecked()
+        collision_action.trigger()
+        assert not state.collisions_enabled and not collision_action.isChecked()
+        collision_action.trigger()
+        assert state.collisions_enabled and collision_action.isChecked()
+
         assert "Symulacja OK" in dispatch(state, "simulate_program")
         window.refresh_all()
         assert window.simulation_slider.isEnabled()

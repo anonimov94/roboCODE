@@ -86,7 +86,8 @@ ACTIONS: list[Action] = [
     A("view.move_tcp", "Przesuń TCP (Alt+Shift)", "Move TCP (Alt+Shift)", None, "move-3d", None, True, "M3"),
     # Narzędzia
     A("tools.trace", "Ślad TCP", "Trace", None, "route", "toggle_trace", True, "M3"),
-    A("tools.collisions", "Sprawdzaj kolizje", "Check collisions", None, "shield-alert", None, True, "M5"),
+    A("tools.collisions", "Sprawdzaj kolizje", "Check collisions", None, "shield-alert",
+      "toggle_collisions", True, "M5"),
     A("tools.collision_map", "Mapa kolizji", "Collision map", None, "grid-3x3", None, milestone="M5"),
     A("tools.color", "Kolor", "Change color", None, "palette", None, milestone="M3"),
     A("tools.measure", "Pomiar", "Measure", None, "ruler", None, milestone="M3"),

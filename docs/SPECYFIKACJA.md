@@ -315,7 +315,7 @@ deklaracja `$APO`/zone per ruch. **Test tekstowy nie zastępuje walidacji na doc
 | v0.4 | Simulation & Post | symulator z estymacją trapezoidalną czasu cyklu, KRL/RAPID, walidacja MoveL, odchyłka konturu, obciążenie narzędzia, dzielenie programów, **walidator centralny, manifest** | program z v0.3 symulowany, wyeksportowany i wgrany na robota | 🟡 walidator + manifest + golden files + metryka odchyłki + estymacja przyspieszeń + konfigurowalne obciążenie + dzielenie ✅; brak: test na robocie |
 | v0.5 | Usable GUI | panele, viewport, Projekt obróbki w GUI, animacja symulacji, podgląd osiągalności | cały workflow bez CLI | 🟡 raport walidacji i podstawowa oś czasu symulacji gotowe; reszta workflow GUI nadal ograniczona bramką testu T1 |
 | v0.6 | Advanced Machining | kalibracja TCP/układu, algorytmy orientacji, zdarzenia, CSV, MoveC, makra | kalibracja + dobry program 5-osiowy | 🟡 kalibracje TCP/baz/układu dostępne w CLI i GUI; algorytmy orientacji i makra otwarte |
-| v0.7 | Robustness | kolizje (fcl/trimesh), osie zewnętrzne, mapa kolizji | sprawdzanie kolizji i limitów, pozycjoner | ⏳ |
+| v0.7 | Robustness | kolizje (fcl/trimesh), osie zewnętrzne, mapa kolizji | sprawdzanie kolizji i limitów, pozycjoner | 🟡 proxy kapsuł–prostopadłościan i przełącznik GUI gotowe; brak siatek/FCL, samokolizji i edytora mapy |
 | v0.8 | Dual-Arm | kalibracja baz A↔B, solver podziału ruchu, 2 zsynchronizowane programy | prosty przypadek kooperatywny działa | ⏳ (eksperymentalny kod) |
 | v1.0 | Production | dokumentacja użytkownika, więcej postów, driver online (opcja), instalator | można polecić firmie (ze świadomością ograniczeń) | ⏳ |
 
@@ -366,7 +366,7 @@ M7→v0.8, M8→v1.0, M9→v0.2 (modele robotów).
 | Post KUKA KRL | post.kuka_krl | test_machining, test_review_fixes, test_post_golden, read-back 42 pozy | 🟡 eksport i read-back lokalny OK; WorkVisual nieobecny, składnia niezweryfikowana kompilatorem vendor |
 | Post ABB RAPID | post.abb_rapid | test_review_fixes, test_post_golden, read-back 42 pozy | 🟡 eksport i read-back lokalny OK; RobotStudio nieobecny, składnia niezweryfikowana kompilatorem vendor |
 | Mapowanie zdarzeń na I/O | post.base | test_review_fixes | ✅ gotowe |
-| Przybliżone kolizje kapsuła–prostopadłościan w próbkach trajektorii | collision.checker, program.simulator, pipeline | test_collision | 🟡 ostrzeżenia i API mapy par; bez mesh/FCL, samokolizji i geometrii OEM |
+| Przybliżone kolizje kapsuła–prostopadłościan w próbkach trajektorii | collision.checker, program.simulator, pipeline | test_collision | 🟡 ostrzeżenia i API mapy par; GUI ma przełącznik kontroli w symulacji i eksporcie; bez edytora mapy, mesh/FCL, samokolizji i geometrii OEM |
 | GUI (menu, drzewo, 3D, F6 przez walidator) | gui | test_gui_spec, test_render | 🟡 podstawowe okno i panel raportu dostępne; reszta workflow nadal ograniczona bramką T1 |
 | Selekcja elementów sceny z widoku 3D | gui.viewport, gui.render | test_gui_spec, test_render | ✅ kliknięcie pickowalnej geometrii synchronizuje zaznaczenie drzewa i panel właściwości |
 | Edycja nazwy i pozy elementu sceny w GUI | gui.handlers, gui.main_window | test_gui_spec | ✅ panel/aktywacja dwuklikiem; jedna komenda Undo/Redo, walidacja pozy i unieważnianie wyniku CAM |
@@ -620,6 +620,9 @@ GUI bez uruchamiania Qt.
   prędkości 1×/5×/20×/100× (domyślnie 5×); akcja „Szybka symulacja” ustawia 100×, a wyłączenie
   wraca do 5×. Sterowanie jest aktywne po udanej symulacji;
   odtwarzanie aktualizuje podgląd 3D, a Stop przywraca pozycję początkową robota.
+- Akcja „Sprawdzaj kolizje” jest domyślnie włączona i przełącza przybliżone kontrole proxy zarówno
+  w symulacji GUI, jak i walidacji eksportu F6. Wyłączenie jej ustawia pustą listę par i nie wyłącza
+  innych walidacji; brak edytora mapy oraz ograniczenia proxy opisano w §6.7.
 
 ### B2.2 Menu
 | Menu | Pozycje |

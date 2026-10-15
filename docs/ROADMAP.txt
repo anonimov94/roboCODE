@@ -3,7 +3,7 @@
 =============================================================================
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
  Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
- Kod: 0.2.0.dev0 | 184 testy | roboCODE.exe przebudowane i sprawdzone (Windows)
+ Kod: 0.2.0.dev0 | 186 testy | roboCODE.exe przebudowane i sprawdzone (Windows)
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
@@ -59,7 +59,7 @@
  |
  v0.7  ROBUSTNESS                                   [##--------]  20%
  |  [~] >>6  przybliżone kolizje: kapsuły ogniw vs prostopadłościany,
- |           próbki trajektorii, allow-lista par przez API, konfiguracja w manifeście
+ |           próbki trajektorii, przełącznik GUI i allow-lista par przez API
  |  [ ]      pełna geometria mesh/FCL, samokolizje i edytor mapy kolizji w GUI
  |  [ ]      osie zewnetrzne: szyna, pozycjoner
  |

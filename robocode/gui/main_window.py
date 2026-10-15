@@ -248,6 +248,8 @@ def build_window(state: AppState | None = None):
             play_button.setText("▶ Odtwarzaj")
         elif cmd == "toggle_fast_sim":
             simulation_speed_combo.setCurrentIndex(3 if state.fast_sim else 1)
+        elif cmd == "toggle_collisions":
+            qactions["tools.collisions"].setChecked(state.collisions_enabled)
         win.statusBar().showMessage(msg, 8000)
         refresh_all()
         if cmd in {"open_demo", "new_machining_project", "update_machining",
@@ -299,6 +301,8 @@ def build_window(state: AppState | None = None):
         if a.shortcut:
             qa.setShortcut(QKeySequence(a.shortcut))
         qa.setCheckable(a.checkable)
+        if a.id == "tools.collisions":
+            qa.setChecked(state.collisions_enabled)
         tip = f"{a.label_pl} ({a.shortcut})" if a.shortcut else a.label_pl
         if a.command is None:
             qa.setEnabled(False)

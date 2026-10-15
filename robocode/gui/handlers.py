@@ -12,6 +12,7 @@ from ..core import pose as P
 from ..core.io import load_station, save_station
 from ..core.scene import Frame, Item, Robot, Station, Tool
 from ..coop.calibration import calibrate_bases, calibrate_tcp, frame_from_3_points
+from ..collision import CollisionChecker
 from ..program.instructions import MoveJ, MoveL, Program
 from ..program.report import Severity, ValidationReport
 
@@ -23,6 +24,7 @@ class AppState:
     selection: list[Item] = field(default_factory=list)
     path: Path | None = None
     fast_sim: bool = False
+    collisions_enabled: bool = True
     overlay: object = None            # render.Overlay – ścieżka obróbki, ślad
     render_opt: object = None         # render.RenderOptions
     project: object = None            # demo.MachiningProject
@@ -215,8 +217,10 @@ def generate_program(s: AppState, folder: str = "programs") -> str:
         else _current_program(s)
     if not p:
         return "Brak programu"
+    checker = CollisionChecker() if s.collisions_enabled else CollisionChecker(pairs=[])
     job = export_program(p, p.robot.post_processor, folder,
-                         parser_warnings=s.project.toolpath.warnings if s.project else None)
+                         parser_warnings=s.project.toolpath.warnings if s.project else None,
+                         collision_checker=checker)
     s.last_report = job.report
     if not job.ok:
         first = job.report.errors[0].text() if job.report.errors else ""
@@ -358,6 +362,11 @@ def toggle_fast_sim(s: AppState) -> str:
     return f"Szybka symulacja: {'wł.' if s.fast_sim else 'wył.'}"
 
 
+def toggle_collisions(s: AppState) -> str:
+    s.collisions_enabled = not s.collisions_enabled
+    return f"Sprawdzanie kolizji: {'wł.' if s.collisions_enabled else 'wył.'}"
+
+
 # ---------------- widok 3D (M3) ----------------
 
 def _auto_frame_size(s: AppState, which: str) -> None:
@@ -465,12 +474,13 @@ def update_machining(s: AppState) -> str:
 def simulate_program(s: AppState) -> str:
     """Calculate a validated simulation trace for local GUI playback."""
     from ..program.simulator import simulate
+    checker = CollisionChecker() if s.collisions_enabled else CollisionChecker(pairs=[])
     prog = s.project.result.program if s.project and s.project.result and s.project.result.ok \
         else _current_program(s)
     if prog is None:
         return "Brak programu do symulacji"
     q0 = prog.robot.joints.copy()
-    sim = simulate(prog)
+    sim = simulate(prog, collision_checker=checker)
     s.last_sim = sim
     s.simulation_robot = prog.robot
     s.simulation_start_joints = q0
@@ -527,7 +537,7 @@ HANDLERS = {
     "teach_target": teach_target, "add_program": add_program, "add_movej": add_movej, "add_movel": add_movel,
     "rename_selected": rename_selected, "toggle_visible": toggle_visible, "generate_program": generate_program,
     "edit_item_properties": edit_item_properties,
-    "toggle_fast_sim": toggle_fast_sim,
+    "toggle_fast_sim": toggle_fast_sim, "toggle_collisions": toggle_collisions,
     "view_iso": _view("iso"), "view_top": _view("top"), "view_front": _view("front"), "view_side": _view("side"),
     "view_fit": _view("fit"), "view_path": _view("path"), "frames_bigger": frames_bigger,
     "frames_smaller": frames_smaller, "toggle_workspace": toggle_workspace, "toggle_trace": toggle_trace,
