@@ -10,3 +10,5 @@ dist/
 *.spec
 roboCODE.exe
 przyklady_nc/
+roboCODE-GUI/
+roboCODE GUI.lnk

@@ -52,7 +52,7 @@ def test_gui_without_qt_gives_clear_message(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(launcher, "base_dir", lambda: tmp_path)
     monkeypatch.setattr(launcher, "_gui_libs_available", lambda: False)
     assert launcher.run_gui() == 1
-    assert "PySide6" in capsys.readouterr().out
+    assert "build_exe.bat" in capsys.readouterr().out
 
 
 def test_gui_falls_back_to_project_venv(tmp_path, monkeypatch, capsys):
@@ -70,3 +70,42 @@ def test_gui_falls_back_to_project_venv(tmp_path, monkeypatch, capsys):
     assert launcher.run_gui() == 0
     assert calls and calls[0][1:] == ["-m", "robocode.cli", "gui"]
     assert "osobnym oknie" in capsys.readouterr().out
+
+
+def test_gui_prefers_built_gui_exe(tmp_path, monkeypatch, capsys):
+    import subprocess
+    exe = tmp_path / "roboCODE-GUI" / "roboCODE-GUI.exe"
+    exe.parent.mkdir()
+    exe.write_text("")
+    monkeypatch.setattr(launcher, "base_dir", lambda: tmp_path)
+    calls = []
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **k: calls.append(args))
+    assert launcher.run_gui() == 0
+    assert calls == [[str(exe)]]
+
+
+def test_gui_installs_missing_libs_into_venv(tmp_path, monkeypatch):
+    """roboCODE.exe + .venv bez PySide6: GUI ma się doinstalować samo, bez poleceń od użytkownika."""
+    import subprocess
+    import sys
+    py = tmp_path / ".venv" / "bin" / "python"
+    py.parent.mkdir(parents=True)
+    py.write_text("")
+    (tmp_path / "pyproject.toml").write_text("")
+    monkeypatch.setattr(launcher, "base_dir", lambda: tmp_path)
+    monkeypatch.setattr(launcher, "_gui_libs_available", lambda: False)
+    monkeypatch.setattr(sys, "executable", "/elsewhere/python")
+    installed = []
+
+    def fake_run(args, **k):
+        if "pip" in args:
+            installed.append(args)
+            return subprocess.CompletedProcess(args, 0)
+        return subprocess.CompletedProcess(args, 0 if installed else 1)
+
+    calls = []
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr(subprocess, "Popen", lambda args, **k: calls.append(args))
+    assert launcher.run_gui() == 0
+    assert installed and installed[0][-1] == ".[gui]"
+    assert calls and calls[0][-1] == "gui"

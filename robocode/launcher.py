@@ -116,8 +116,44 @@ def _gui_libs_available() -> bool:
     return True
 
 
+def gui_exe() -> Path | None:
+    """roboCODE-GUI.exe zbudowany przez build_exe.bat (folder roboCODE-GUI obok roboCODE.exe)."""
+    for cand in (base_dir() / "roboCODE-GUI" / "roboCODE-GUI.exe", base_dir() / "roboCODE-GUI" / "roboCODE-GUI"):
+        if cand.is_file():
+            return cand
+    return None
+
+
+def _venv_has_gui(py: Path) -> bool:
+    import subprocess
+    check = subprocess.run([str(py), "-c", "import PySide6, pyvistaqt, robocode"], cwd=base_dir(),
+                           capture_output=True, timeout=120)
+    return check.returncode == 0
+
+
+def _install_gui_into_venv(py: Path) -> bool:
+    """Doinstalowuje PySide6/pyvista do .venv projektu (jednorazowo, bez udziału użytkownika)."""
+    import subprocess
+    if not (base_dir() / "pyproject.toml").is_file():
+        return False
+    print("Instaluję biblioteki GUI (PySide6, pyvista) – jednorazowo, może potrwać kilka minut…")
+    r = subprocess.run([str(py), "-m", "pip", "install", "-e", ".[gui]"], cwd=base_dir())
+    return r.returncode == 0
+
+
+def _start_detached(args: list[str]) -> None:
+    import subprocess
+    flags = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+    subprocess.Popen(args, cwd=base_dir(), creationflags=flags)
+
+
 def run_gui() -> int:
-    """Start the GUI here, or – in roboCODE.exe built without Qt – via the project's .venv."""
+    """Otwiera okno GUI: roboCODE-GUI.exe → biblioteki w tym procesie → .venv projektu (doinstaluje GUI)."""
+    exe = gui_exe()
+    if exe is not None:
+        _start_detached([str(exe)])
+        print("✓ GUI uruchomione w osobnym oknie")
+        return 0
     if _gui_libs_available():
         from .gui.main_window import main as gui_main
         try:
@@ -125,19 +161,15 @@ def run_gui() -> int:
         except SystemExit:
             pass  # closing the window must not close the launcher menu
         return 0
-    import subprocess
     py = venv_python()
     if py is not None and Path(sys.executable).resolve() != py.resolve():
-        check = subprocess.run([str(py), "-c", "import PySide6, pyvistaqt, robocode"], cwd=base_dir(),
-                               capture_output=True, timeout=120)
-        if check.returncode == 0:
-            flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0)
-            subprocess.Popen([str(py), "-m", "robocode.cli", "gui"], cwd=base_dir(), creationflags=flags)
+        if _venv_has_gui(py) or (_install_gui_into_venv(py) and _venv_has_gui(py)):
+            pyw = py.with_name("pythonw.exe")
+            _start_detached([str(pyw if pyw.is_file() else py), "-m", "robocode.cli", "gui"])
             print(f"✓ GUI uruchomione w osobnym oknie (Python z {py.parent.parent})")
             return 0
-    print("✗ GUI wymaga bibliotek PySide6 i pyvista, których nie ma w roboCODE.exe (exe bez Qt).")
-    print("  Zainstaluj je w środowisku projektu:  .venv\\Scripts\\python -m pip install -e .[gui]")
-    print("  albo uruchom konfigurację „roboCODE GUI” w PyCharmie.")
+    print("✗ Nie znaleziono GUI (roboCODE-GUI.exe) ani bibliotek PySide6/pyvista.")
+    print("  Uruchom dwuklikiem build_exe.bat – zbuduje roboCODE.exe i roboCODE-GUI.exe.")
     return 1
 
 

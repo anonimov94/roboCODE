@@ -21,11 +21,13 @@ Błąd krytyczny na którymkolwiek etapie = **brak pliku dla robota** i raport w
 
 ## Launcher dla Windows (roboCODE.exe)
 
-1. Dwuklik **`build_exe.bat`**: tworzy `.venv` (jeśli go nie ma), instaluje zależności i PyInstaller,
-   buduje **`roboCODE.exe`** w folderze projektu (około 23 MB, jeden plik, bez GUI Qt).
-2. Dwuklik **`roboCODE.exe`** → menu: demo, obróbka własnego pliku NC (okno wyboru pliku), raport HTML,
-   przykładowe pliki NC, folder wyników. Wyniki trafiają do folderu `out` obok exe.
-3. `roboCODE.exe machine plik.nc --post abb` działa jak CLI. Bez budowania: dwuklik `roboCODE.bat`.
+1. Dwuklik **`build_exe.bat`**: tworzy `.venv` (jeśli go nie ma), instaluje zależności (z GUI) i PyInstaller,
+   buduje **`roboCODE.exe`** (menu, jeden plik) i **`roboCODE-GUI\roboCODE-GUI.exe`** (okno GUI z widokiem 3D),
+   sprawdza, czy GUI startuje, i tworzy skrót **„roboCODE GUI”** w folderze projektu i na pulpicie.
+2. **GUI:** dwuklik skrótu „roboCODE GUI”. Bez konsoli i bez poleceń. Błąd startu → okienko + `out/gui_error.log`.
+3. Dwuklik **`roboCODE.exe`** → menu: demo, obróbka własnego pliku NC (okno wyboru pliku), raport HTML,
+   przykładowe pliki NC, GUI (opcja 5), folder wyników. Wyniki trafiają do folderu `out` obok exe.
+4. `roboCODE.exe machine plik.nc --post abb` działa jak CLI. Bez budowania: dwuklik `roboCODE.bat`.
 
 ## Szybki start
 
@@ -59,7 +61,7 @@ pomiarowych, dodawanie modelu z biblioteki robotów do pustej stacji, oś czasu 
 przełącznik i edytor mapy przybliżonych kolizji. Mapa par jest stosowana w symulacji i eksporcie,
 ale nie jest zapisywana w pliku stacji. Obecnie obsługiwany jest jeden robot na stację. To ograniczony
 workflow offline; nie jest zatwierdzony do sterowania robotem.
-GUI nie jest dołączone do EXE.
+Na Windows GUI jest budowane jako `roboCODE-GUI.exe` (patrz „Launcher dla Windows”).
 
 ![Widok ogólny](docs/gui_demo.png)
 ![Ścieżka z bliska](docs/gui_path.png)
