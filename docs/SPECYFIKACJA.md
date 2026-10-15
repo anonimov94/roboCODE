@@ -53,7 +53,7 @@ systemy embedded/mikrokontrolery (uwaga z notatki Gemini o ESP32/RPi nie dotyczy
 
 | # | Sprzeczność | Decyzja | Uzasadnienie |
 |---|---|---|---|
-| D1 | README: GUI i widok 3D jako M2–M3 (wcześnie). ChatGPT i Grok: GUI dopiero po działającym backendzie. | **GUI zamrożone na obecnym poziomie** do ukończenia v0.4. Dozwolone tylko poprawki bezpieczeństwa (np. F6 przez walidator). | Zgodne 2 z 3 źródeł; GUI przed backendem to najczęstsza pułapka. |
+| D1 | README: GUI i widok 3D jako M2–M3 (wcześnie). ChatGPT i Grok: GUI dopiero po działającym backendzie. | **Pierwotna decyzja o zamrożeniu pozostaje historyczna; GUI jest częściowo odblokowane** dla ograniczonego workflow opisanego w §10.1. Nie oznacza to gotowości produkcyjnej ani zgody na sterowanie robotem. | Backend i walidator są rozwinięte; dalsze GUI wdrażane etapami, z zachowaniem bramki walidacji i testu T1 dla uruchomienia na sprzęcie. |
 | D2 | Kolejność wersji: README M1–M9 vs Grok v0.1–v1.0. | **Obowiązuje numeracja Groka (v0.x)**; milestones README zmapowane w §10. | Wersje Groka mają kryteria ukończenia. |
 | D3 | Gemini: dokumentacja techniczna po angielsku. README: wszystko po polsku. | **Dokumentacja projektu po polsku**; identyfikatory i docstringi **nowego** kodu po angielsku; komunikaty dla operatora po polsku (później i18n). | Właściciel pracuje po polsku; kod zostaje czytelny dla społeczności open source. |
 | D4 | Gemini: walidacja przez Pydantic. | **Nie teraz.** `dataclasses` + jawne walidatory domenowe. | Mniej zależności; walidacja geometrii i tak jest domenowa. |
@@ -102,7 +102,7 @@ robocode/
   coop/                [eksperymentalne] dual-arm, kalibracje baz/TCP/układu
   tools/               report_html (raport HTML z manifestu), sample_nc (przykładowe programy NC)
   collision/ drivers/  [szkielety] v0.7 / v1.0
-  gui/                 [zamrożone, D1] actions (deklaratywne), handlers, main_window, render, viewport
+  gui/                 [częściowo odblokowane, D1] actions (deklaratywne), handlers, main_window, render, viewport
   cli.py               robocode demo | machine | report | samples | render | gui
 ```
 
@@ -238,10 +238,13 @@ BAD_POSE, BAD_JOINTS, JOINT_LIMIT, SPEED_RANGE, JOINT_SPEED_RANGE, ROUNDING_RANG
 UNREACHABLE, CONFIG_JUMP, MOVEC_DEGENERATE, SIM_SKIPPED, POST_COUNT, POST_MISMATCH, POST_JOINT_COUNT,
 POST_JOINT_MISMATCH, STATION`. Informacja: `CONTOUR_DEVIATION`. Ostrzeżenia: `PARSER, NEAR_JOINT_LIMIT,
 SINGULARITY, JOINT_SPEED, CONFIG_DIFFERS,
-CONTROLLER_SUBPROGRAMS, COLLISION_NOT_CHECKED` (zawsze obecne do v0.7), `TOOL_LOAD_DEFAULT` (ABB), `STALE_OUTPUT`.
+CONTROLLER_SUBPROGRAMS, COLLISION_NOT_CHECKED` (obecne, gdy pełna kontrola kolizji nie jest dostępna),
+`TOOL_LOAD_DEFAULT` (ABB), `STALE_OUTPUT`.
 
-**Czego walidacja jeszcze NIE robi:** kolizji (v0.7), przyspieszeń osi, odchyłki konturu względem
-powierzchni CAD, weryfikacji składni na prawdziwym kontrolerze. Raport nie może być traktowany jako
+**Czego walidacja jeszcze NIE robi:** pełnej kontroli kolizji (geometrii siatkowej, samokolizji i stref
+mocowań), potwierdzania przyspieszeń na konkretnym robocie ani weryfikacji składni na prawdziwym
+kontrolerze. Odchyłka konturu jest liczona dla próbek TCP ścieżek MoveL/MoveC, a nie względem
+powierzchni CAD. Raport nie może być traktowany jako
 dowód bezpieczeństwa.
 
 ---
@@ -324,27 +327,28 @@ M7→v0.8, M8→v1.0, M9→v0.2 (modele robotów).
 
 ### 10.1 Najbliższe zadania (kolejność)
 1. Weryfikacja importu i kompilacji KRL/RAPID w WorkVisual/RobotStudio — wynik wpisać do macierzy §11.
-   W środowisku deweloperskim 2026-10-15 aplikacje WorkVisual i RobotStudio nie były zainstalowane
-   (brak wpisów instalacyjnych i poleceń). Eksport demo obu postów oraz wewnętrzny read-back
-   42 pozy przechodzą, ale nie zastępują kompilacji vendor; ten punkt pozostaje otwarty.
-2. Test na prawdziwym robocie w trybie T1 i ze zredukowaną prędkością; dopiero po pozytywnej ocenie
-   bezpieczeństwa stanowiska.
-   Próba wykonania 2026-10-15 została zablokowana: repozytorium zawiera jedynie abstrakcyjny
-   `RobotDriver` i `SimulatedDriver`, bez sterownika OEM; w środowisku nie ma dostępnego robota,
-   procesu sterownika ani skonfigurowanej celi. Nie wysłano żadnych poleceń ruchu. Demo nie jest
-   zatwierdzonym programem testowym: walidator ostrzega m.in. o niesprawdzonych kolizjach,
-   domyślnym/brakującym obciążeniu narzędzia i wymaganych podprogramach.
-   Do wznowienia wymagane są: wskazany model robota i kontrolera, właściwy sterownik OEM,
-   zgodny model kinematyczny, zmierzone TCP/baza/obciążenie, sprawdzony program i celi wolna
-   od kolizji, kompilacja vendor oraz uprawniony operator na stanowisku, gotowy do natychmiastowego
-   zatrzymania. Próba wyłącznie według procedur producenta/zakładu: T1, reduced speed, ręczne
-   zezwolenie, krok po kroku i przebieg na sucho. Nie wolno traktować symulatora jako testu T1.
-3. Panel Projektu obróbki z `ValidationReport` został wdrożony przed pozytywnym testem T1 na żądanie
-   użytkownika. To ograniczone odblokowanie GUI nie oznacza gotowości do pracy na robocie; pełny
-   workflow GUI i użycie produkcyjne nadal wymagają zamknięcia bramki bezpieczeństwa v0.4.
-4. Oś czasu GUI odtwarza próbki osi z udanej symulacji; suwak pozwala przewijać próbki, pauza
-   zatrzymuje odtwarzanie, a Stop przywraca osie do pozycji początkowej. To podgląd offline,
-   nie sterowanie robotem ani reprezentacja rzeczywistego czasu cyklu.
+   Eksport demo i wewnętrzny read-back obu postów przechodzą; aplikacje vendor nie są dostępne
+   w środowisku deweloperskim, więc ich zgodność składniowa pozostaje niepotwierdzona.
+2. Test na prawdziwym robocie w trybie T1 i ze zredukowaną prędkością, dopiero po pozytywnej ocenie
+   bezpieczeństwa stanowiska. Środowisko nie ma robota, sterownika OEM ani skonfigurowanej celi;
+   nie wysłano poleceń ruchu. Potrzebne są zgodny model robota, zmierzone TCP/baza/obciążenie,
+   program zatwierdzony przez kompilator vendor i uprawniony operator na stanowisku. Próba wyłącznie
+   według procedur producenta/zakładu: T1, reduced speed, ręczne zezwolenie, krok po kroku i na sucho.
+   Symulacja roboCODE nie jest testem T1 ani funkcją bezpieczeństwa.
+3. Uzupełnienie katalogowych limitów prędkości/przyspieszeń osi i konfiguracji IK Rear/Down.
+4. GUI v0.5: podgląd osiągalności na żywo oraz gizmo edycji w 3D.
+5. Pełna kontrola kolizji v0.7: geometria siatkowa/FCL, samokolizje i edytor mapy kolizji.
+6. v0.6: orientacja podążająca za ścieżką, remote TCP, makra Python i import krzywych geometrii.
+7. Osie zewnętrzne; następnie kalibracja A↔B w przepływie dual-arm i dwa zsynchronizowane programy.
+8. v1.0: dokumentacja użytkownika, kolejne posty, opcjonalny sterownik online i instalator.
+9. Infrastruktura: wznowić CI po usunięciu blokady rozliczeń konta i rozstrzygnąć otwarty PR #1.
+Wdrożone po pierwotnej decyzji D1 na żądanie użytkownika — ograniczone funkcje GUI offline, nie
+sterowanie robotem:
+- Panel Projektu obróbki prezentuje `ValidationReport`; oś czasu odtwarza próbki udanej symulacji,
+  a suwak, pauza i Stop pozwalają sterować podglądem. Nie jest to reprezentacja rzeczywistego czasu
+  cyklu ani test T1.
+- Przełącznik kolizji obejmuje tylko przybliżone proxy opisane w §6.7.
+- Pozostały workflow GUI, w tym edycja gizmem i podgląd osiągalności, nadal jest otwarty.
 
 ---
 

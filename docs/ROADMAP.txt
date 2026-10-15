@@ -3,7 +3,7 @@
 =============================================================================
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
  Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
- Kod: 0.2.0.dev0 | 186 testy | roboCODE.exe przebudowane i sprawdzone (Windows)
+ Kod: 0.2.0.dev0 | 186 testów | roboCODE.exe (23 341 462 B) przebudowane i sprawdzone (Windows)
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
@@ -41,7 +41,7 @@
  |  [x]      dzielenie dlugich programow (limit CLI/API, zachowanie stanu modalnego, manifest)
  |  [ ] >>4  pierwszy test na prawdziwym robocie (T1, zredukowana predkosc) - zablokowany: brak sterownika OEM, robota i konfiguracji celi w srodowisku
  |
- ---- tu konczy sie "prawdziwe MVP" - dopiero potem odmrozic GUI ----------
+ ---- MVP wymaga jeszcze walidacji vendor i testu T1; GUI odblokowane czesciowo ----------
  |
  v0.5  USABLE GUI                (CZESCIOWO ODMROZONE) [######----]  65%
  |  [x] okno, menu/pasek z actions.py, drzewo, widok 3D, F6 przez walidator
@@ -75,17 +75,24 @@
 =============================================================================
  NARZEDZIA I INFRASTRUKTURA
    [x] raport HTML z manifestu          [x] przykladowe programy NC
-   [x] launcher + roboCODE.exe          [x] test_exe.bat (12/12 OK)
+   [x] launcher + roboCODE.exe (build 2026-10-15; smoke CLI: help, demo KUKA/ABB, blokada blednego NC)
+   [x] test_exe.bat (12/12 OK, poprzedni test)
    [x] konfiguracje PyCharm (.run)      [x] plik CI (GitHub Actions)
    [x] workflow CI w .github/workflows/ci.yml
-   [ ] udany przebieg CI na GitHub - ostatnie joby zakonczyly sie przed krokami (brak logow)
+   [ ] udany przebieg CI na GitHub - znana blokada rozliczen konta; ostatnie joby zakonczyly sie przed krokami (brak logow)
    [ ] scalic PR #1 (galaz poc-0.2) do main
 =============================================================================
  KOLEJKA - CO ROBIC TERAZ (od gory):
 
-   1. weryfikacja importu/kompilacji WorkVisual / RobotStudio (lokalny eksport i read-back OK; brak aplikacji vendor)
-   2. test na robocie (T1) ...................... v0.4   <- koniec MVP; wymaga sterownika, robota i nadzorujacego operatora
-   3. panel raportu walidacji w GUI ............. v0.5   [x]
-   4. kalibracje w GUI ........................... v0.6   [x]
-   5. kolizje ................................... v0.7 [~] proxy w symulatorze; pełny zakres otwarty
+   1. weryfikacja importu/kompilacji WorkVisual / RobotStudio
+      - lokalne eksporty i read-back KRL/RAPID OK; blokada: brak aplikacji vendor
+   2. test na robocie T1, zredukowana predkosc
+      - blokada: brak robota, sterownika OEM, zatwierdzonej celi i nadzorujacego operatora
+   3. limity predkosci/przyspieszen osi z kart katalogowych + uzupelnienie konfiguracji Rear/Down
+   4. GUI v0.5: podglad osiagalnosci na zywo i gizmo edycji w 3D
+   5. kolizje v0.7: geometria mesh/FCL, samokolizje i edytor mapy kolizji
+   6. v0.6: orientacja podazajaca za sciezka / remote TCP, makra Python i import krzywych
+   7. osie zewnetrzne; potem integracja przeplywu dual-arm i eksport dwoch programow
+   8. v1.0: dokumentacja uzytkownika, posty Fanuc/Yaskawa, opcjonalny driver i instalator
+   9. infrastruktura: odblokowac CI po naprawie rozliczen; rozstrzygnac otwarty PR #1
 =============================================================================

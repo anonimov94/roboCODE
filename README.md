@@ -22,7 +22,7 @@ Błąd krytyczny na którymkolwiek etapie = **brak pliku dla robota** i raport w
 ## Launcher dla Windows (roboCODE.exe)
 
 1. Dwuklik **`build_exe.bat`**: tworzy `.venv` (jeśli go nie ma), instaluje zależności i PyInstaller,
-   buduje **`roboCODE.exe`** w folderze projektu (~30 MB, jeden plik, bez GUI Qt).
+   buduje **`roboCODE.exe`** w folderze projektu (około 23 MB, jeden plik, bez GUI Qt).
 2. Dwuklik **`roboCODE.exe`** → menu: demo, obróbka własnego pliku NC (okno wyboru pliku), raport HTML,
    przykładowe pliki NC, folder wyników. Wyniki trafiają do folderu `out` obok exe.
 3. `roboCODE.exe machine plik.nc --post abb` działa jak CLI. Bez budowania: dwuklik `roboCODE.bat`.
@@ -41,24 +41,32 @@ python -m robocode.cli samples examples/samples                    # przykładow
 
 Przykładowy wynik:
 ```
-✓ Zapisano Machining.src (ostrzeżenia: 3)
-Walidacja: OK | błędy: 0 | ostrzeżenia: 3 | próbek trajektorii: 134 | czas cyklu ≈ 29.4 s
+✓ Zapisano Machining.src (ostrzeżenia: 5)
+Walidacja: OK | błędy: 0 | ostrzeżenia: 5 | próbek trajektorii: 134 | czas cyklu ≈ 31.5 s
   ⚠ [parse/PARSER] linia 5: brak G20/G21 przed pierwszym ruchem – przyjęto mm (G21)
   ⚠ [static/CONTROLLER_SUBPROGRAMS] Program wywołuje podprogramy, które muszą istnieć na sterowniku: …
-  ⚠ [trajectory/COLLISION_NOT_CHECKED] Kolizje (robot, narzędzie, detal, mocowania) NIE są jeszcze sprawdzane …
+  ⚠ [trajectory/COLLISION_TOOL_PROXY_DISABLED] Domyślna mapa kolizji pomija narzędzie/obrabiany detal …
+  ⚠ [trajectory/COLLISION_NOT_CHECKED] Kontrola kolizji używa uproszczonych proxy; nie zastępuje symulatora producenta …
+  ⚠ [post/TOOL_LOAD_DEFAULT] Nie podano rzeczywistych danych obciążenia narzędzia …
 Manifest: out/Machining.manifest.json
 ```
 
-GUI (zamrożone do v0.4, patrz specyfikacja §3 D1): `python -m robocode.cli gui`.
+GUI (opcjonalne zależności `pip install -e .[gui]`): `python -m robocode.cli gui`.
+Dostępne są m.in. panel raportu obróbki, edycja i zaznaczanie elementów, kalibracja z plików
+pomiarowych, oś czasu symulacji oraz przełącznik przybliżonej kontroli kolizji. To ograniczony
+workflow offline; nie jest zatwierdzony do sterowania robotem. GUI nie jest dołączone do EXE.
 
 ![Widok ogólny](docs/gui_demo.png)
 ![Ścieżka z bliska](docs/gui_path.png)
 
 ## Ważne ograniczenia
 
-- Model robota w repo jest **syntetyczny** (`generic6r_900`), nie odpowiada żadnemu produktowi.
-- Pliki KRL/RAPID **nie były jeszcze weryfikowane na prawdziwym sterowniku**.
-- Brak sprawdzania kolizji (v0.7).
+- Modele obejmują model syntetyczny do testów i nominalny UR5e; żaden nie zastępuje kalibracji
+  konkretnego robota, TCP, bazy i obciążenia.
+- Pliki KRL/RAPID przechodzą wewnętrzny read-back, ale nie były kompilowane w WorkVisual/
+  RobotStudio ani weryfikowane na sterowniku.
+- Kontrola kolizji to przybliżone kapsuły ogniw kontra prostopadłościany; brak pełnej geometrii,
+  samokolizji i walidacji bezpieczeństwa. Przełącznik GUI/F6 jedynie włącza lub wyłącza te proxy.
 - roboCODE nie zastępuje funkcji bezpieczeństwa robota ani procedur stanowiska (specyfikacja §12).
 
 ## Źródła wymagań
