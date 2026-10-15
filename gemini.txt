@@ -1,0 +1,20 @@
+# Instrukcje Gemini w projekcie roboCODE
+
+## 1. Kontekst Projektu i Cel
+- **Domena:** Robotyka, systemy embedded, automatyka lub oprogramowanie sterujące (powiązane z ekosystemem `anonimov94`).
+- **Język komunikacji:** Polski (chyba że użytkownik poprosi inaczej), kod i dokumentacja techniczna w języku angielskim.
+- **Styl kodu:** Czysty, czytelny, zmodularowany kod zgodny z dobrymi praktykami (Clean Code, DRY, SOLID).
+
+## 2. Zasady Pisania Kodu
+- **Architektura:** Zawsze oddzielaj logikę biznesową/sterującą (algorytmy) od warstwy sprzętowej/wejścia-wyjścia (HAL - Hardware Abstraction Layer).
+- **Typowanie i Walidacja:** Wymagaj jawnego typowania w obsługiwanych językach (np. TypeScript, Python z type hints / Pydantic, nowoczesny C++).
+- **Bezpieczeństwo i Odporność na Błędy:** Uwzględniaj obsługę wyjątków, timeouty dla operacji asynchronicznych/sprzętowych oraz bezpieczne stany awaryjne (fail-safe).
+
+## 3. Formatowanie Odpowiedzi
+- **Zwięzłość i Konkretność:** Unikaj zbędnego lania wody. Od razu przechodź do sedna, a trudniejsze koncepcje tłumacz w punktach.
+- **Bloki Kodu:** Zawsze oznaczaj język w blokach kodu (np. ```python, ```cpp, ```yaml) i dostarczaj pełne, gotowe do wklejenia fragmenty zamiast uciętych snippetów (chyba że modyfikacja dotyczy tylko małej linii).
+- **Dokumentacja:** Do nowego kodu dołączaj zwięzłe komentarze (w języku angielskim) oraz sugestie testów jednostkowych.
+
+## 4. Dodatkowe Wymagania dla Robotyki / Embedded
+- Pamiętaj o ograniczeniach zasobów (pamięć, wydajność), jeśli projekt dotyczy mikrokontrolerów lub małych komputerów jednopłytkowych (np. Raspberry Pi, ESP32).
+- Proponując zmiany, biorące pod uwagę sprzęt, zawsze uwzględniaj kwestie bezpieczeństwa fizycznego (np. limity osi, wyłączniki krańcowe, stany nieustalone).
