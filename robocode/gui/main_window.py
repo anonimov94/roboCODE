@@ -18,12 +18,30 @@ def _report_text(report) -> str:
 
 
 def build_window(state: AppState | None = None):
-    from PySide6.QtCore import Qt
+    from PySide6.QtCore import Qt, QTimer
     from PySide6.QtGui import QAction, QKeySequence
-    from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QDockWidget, QFileDialog, QFormLayout,
-                                   QLabel, QLineEdit, QMainWindow, QPushButton, QDoubleSpinBox,
-                                   QToolBar, QMessageBox, QTextBrowser, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
-                                   QWidget)
+    from PySide6.QtWidgets import (
+        QApplication,
+        QDialog,
+        QDialogButtonBox,
+        QDockWidget,
+        QDoubleSpinBox,
+        QFileDialog,
+        QFormLayout,
+        QHBoxLayout,
+        QLabel,
+        QLineEdit,
+        QMainWindow,
+        QMessageBox,
+        QPushButton,
+        QSlider,
+        QTextBrowser,
+        QToolBar,
+        QTreeWidget,
+        QTreeWidgetItem,
+        QVBoxLayout,
+        QWidget,
+    )
 
     from ..core import pose as P
     from .viewport import Viewport
@@ -89,10 +107,81 @@ def build_window(state: AppState | None = None):
     tree.itemSelectionChanged.connect(on_select)
     view.set_selection_callback(on_viewport_pick)
 
+    simulation_timer = QTimer(win)
+    simulation_timer.setInterval(50)
+
+    def sync_simulation_controls():
+        sim = state.last_sim
+        count = len(sim.joints) if sim is not None and sim.ok else 0
+        simulation_slider.blockSignals(True)
+        simulation_slider.setRange(0, max(0, count - 1))
+        simulation_slider.setValue(min(state.simulation_index, max(0, count - 1)))
+        simulation_slider.setEnabled(count > 0)
+        play_button.setEnabled(count > 1)
+        stop_button.setEnabled(count > 0)
+        play_button.setText("⏸ Pauza" if state.simulation_playing else "▶ Odtwarzaj")
+        simulation_label.setText(
+            f"Próbka {state.simulation_index + 1}/{count}" if count else "Brak symulacji"
+        )
+        simulation_slider.blockSignals(False)
+
+    def refresh_robot_properties():
+        if state.selection and state.selection[0] is state.simulation_robot:
+            props.setText(_props_text(state.selection[0]))
+
+    def advance_simulation():
+        if not state.simulation_playing:
+            simulation_timer.stop()
+            return
+        sim = state.last_sim
+        next_index = state.simulation_index + 1
+        if sim is None or next_index >= len(sim.joints):
+            simulation_timer.stop()
+            state.simulation_playing = False
+            play_button.setText("▶ Odtwarzaj")
+            return
+        dispatch(state, "seek_simulation", next_index)
+        sync_simulation_controls()
+        view.refresh(state)
+        refresh_robot_properties()
+
+    simulation_timer.timeout.connect(advance_simulation)
+
+    def toggle_simulation_playback():
+        restart = (
+            state.last_sim is not None
+            and state.simulation_index >= len(state.last_sim.joints) - 1
+        )
+        message = dispatch(state, "pause_sim")
+        win.statusBar().showMessage(message, 3000)
+        if state.simulation_playing:
+            if restart:
+                sync_simulation_controls()
+                view.refresh(state)
+                refresh_robot_properties()
+            simulation_timer.stop()
+            simulation_timer.start()
+            play_button.setText("⏸ Pauza")
+        else:
+            simulation_timer.stop()
+            play_button.setText(
+                "▶ Wznów" if state.last_sim is not None and state.last_sim.ok else "▶ Odtwarzaj"
+            )
+
+    def on_simulation_slider(index):
+        simulation_timer.stop()
+        state.simulation_playing = False
+        play_button.setText("▶ Odtwarzaj")
+        dispatch(state, "seek_simulation", index)
+        sync_simulation_controls()
+        view.refresh(state)
+        refresh_robot_properties()
+
     def refresh_all(first: bool = False):
         refresh_tree()
         view.refresh(state, keep_camera=not first and state.view_request is None)
         machining_report.setPlainText(_report_text(state.last_report))
+        sync_simulation_controls()
         if state.view_request:
             view.apply_view("iso" if state.view_request == "fit" else state.view_request, state)
             state.view_request = None
@@ -100,6 +189,11 @@ def build_window(state: AppState | None = None):
     # --- akcje ---
     def run_command(cmd):
         args = []
+        restart_simulation = (
+            cmd == "pause_sim"
+            and state.last_sim is not None
+            and state.simulation_index >= len(state.last_sim.joints) - 1
+        )
         if cmd in NEEDS_PATH:
             title, filt, mode = NEEDS_PATH[cmd]
             fn = (QFileDialog.getSaveFileName if mode == "save" else QFileDialog.getOpenFileName)(win, title, "", filt)[0]
@@ -123,6 +217,20 @@ def build_window(state: AppState | None = None):
                     msg = "Kalibracja obliczona, zmiany nie zastosowano"
         except Exception as e:  # błąd nie może zabić GUI
             msg = f"Błąd: {e}"
+        if cmd == "pause_sim":
+            if state.simulation_playing:
+                if restart_simulation:
+                    sync_simulation_controls()
+                    view.refresh(state)
+                    refresh_robot_properties()
+                simulation_timer.start()
+                play_button.setText("⏸ Pauza")
+            else:
+                simulation_timer.stop()
+                play_button.setText("▶ Wznów")
+        elif cmd == "stop_sim":
+            simulation_timer.stop()
+            play_button.setText("▶ Odtwarzaj")
         win.statusBar().showMessage(msg, 8000)
         refresh_all()
         if cmd in {"open_demo", "new_machining_project", "update_machining",
@@ -215,12 +323,44 @@ def build_window(state: AppState | None = None):
     report_dock.setWidget(machining_report)
     win.addDockWidget(Qt.RightDockWidgetArea, report_dock)
     win.tabifyDockWidget(pdock, report_dock)
+    sim_bar = QWidget(win)
+    sim_layout = QVBoxLayout(sim_bar)
+    controls_layout = QHBoxLayout()
+    play_button = QPushButton("▶ Odtwarzaj", sim_bar)
+    stop_button = QPushButton("■ Stop", sim_bar)
+    simulation_label = QLabel("Brak symulacji", sim_bar)
+    controls_layout.addWidget(play_button)
+    controls_layout.addWidget(stop_button)
+    controls_layout.addWidget(simulation_label)
+    simulation_slider = QSlider(Qt.Horizontal, sim_bar)
+    simulation_slider.setEnabled(False)
+    sim_layout.addLayout(controls_layout)
+    sim_layout.addWidget(simulation_slider)
+    sim_dock = QDockWidget("Oś czasu symulacji", win)
+    sim_dock.setObjectName("simulation_timeline_dock")
+    sim_dock.setWidget(sim_bar)
+    win.addDockWidget(Qt.BottomDockWidgetArea, sim_dock)
+    play_button.clicked.connect(toggle_simulation_playback)
+
+    def stop_simulation_playback():
+        simulation_timer.stop()
+        dispatch(state, "stop_simulation")
+        play_button.setText("▶ Odtwarzaj")
+        refresh_all()
+
+    stop_button.clicked.connect(stop_simulation_playback)
+    simulation_slider.valueChanged.connect(on_simulation_slider)
     win.machining_report_panel = machining_report
     win.machining_report_dock = report_dock
     win.edit_properties_button = edit_properties_button
     win.station_tree = tree
     win.station_item_widgets = widget_map
     win.properties_text = props
+    win.simulation_slider = simulation_slider
+    win.simulation_play_button = play_button
+    win.simulation_stop_button = stop_button
+    win.simulation_label = simulation_label
+    win.simulation_timer = simulation_timer
 
     win.statusBar().showMessage("Gotowy. Plik → Otwórz demo obróbki, albo Ctrl+M z własnym plikiem NC.")
     refresh_all(first=True)

@@ -29,6 +29,10 @@ class AppState:
     view_request: str | None = None   # GUI ustawia kamerę po akcji ("iso", "top", "path"…)
     trace_on: bool = True
     last_sim: object = None
+    simulation_robot: Robot | None = None
+    simulation_start_joints: np.ndarray | None = None
+    simulation_index: int = 0
+    simulation_playing: bool = False
     last_report: object = None  # ValidationReport z ostatniego eksportu (F6)
     pending_calibration: tuple[Item, np.ndarray, str] | None = None
 
@@ -41,9 +45,18 @@ class AppState:
         return next((i for i in self.station.walk() if isinstance(i, Robot)), None)
 
 
+def _clear_simulation(s: AppState) -> None:
+    s.last_sim = None
+    s.simulation_robot = None
+    s.simulation_start_joints = None
+    s.simulation_index = 0
+    s.simulation_playing = False
+
+
 def new_station(s: AppState) -> str:
     s.station, s.undo, s.selection, s.path = Station(name="Stacja 1"), C.UndoStack(), [], None
     s.project, s.last_report, s.overlay, s.pending_calibration = None, None, None, None
+    _clear_simulation(s)
     return "Nowa stacja"
 
 
@@ -66,6 +79,7 @@ def open_file(s: AppState, path: str | None = None) -> str:
     s.station, s.path = load_station(path), Path(path)
     s.undo = C.UndoStack()
     s.project, s.last_report, s.overlay, s.pending_calibration = None, None, None, None
+    _clear_simulation(s)
     return f"Otwarto {Path(path).name}"
 
 
@@ -110,6 +124,7 @@ def add_program(s: AppState) -> str:
     r = s.robot()
     p = Program(name=f"Prog{sum(1 for i in s.station.walk() if i.kind == 'program') + 1}", robot=r)
     s.undo.push(C.add_item(s.station, p, "Dodaj program"))
+    _clear_simulation(s)
     s.selection = [p]
     return f"Dodano {p.name}"
 
@@ -123,6 +138,7 @@ def add_movej(s: AppState) -> str:
     p = _current_program(s) or (add_program(s) and _current_program(s))
     r = p.robot
     p.append(MoveJ(joints=r.joints.copy()))
+    _clear_simulation(s)
     return "Dodano MoveJ"
 
 
@@ -133,6 +149,7 @@ def add_movel(s: AppState) -> str:
     import numpy as np
     pose = np.linalg.inv(r.frame_rel_base(r.active_frame)) @ r.model.fk(r.joints) @ (tcp if tcp is not None else np.eye(4))
     p.append(MoveL(pose=pose, joints=r.joints.copy()))
+    _clear_simulation(s)
     return "Dodano MoveL"
 
 
@@ -150,6 +167,7 @@ def toggle_visible(s: AppState) -> str:
 
 
 def _invalidate_machining_result(s: AppState) -> None:
+    _clear_simulation(s)
     if s.project is not None:
         s.project.result = None
         s.overlay = None
@@ -390,6 +408,7 @@ def toggle_trace(s: AppState) -> str:
 def open_demo(s: AppState) -> str:
     from ..demo import demo_project
     st, proj = demo_project()
+    _clear_simulation(s)
     s.station, s.project, s.undo, s.selection, s.path = st, proj, C.UndoStack(), [], None
     s.overlay = proj.overlay()
     s.view_request = "iso"
@@ -404,6 +423,7 @@ def new_machining_project(s: AppState, nc_path: str | None = None) -> str:
     from ..machining.solver import MachiningSettings
     if not nc_path:
         return "Wybierz plik NC (G-code)"
+    _clear_simulation(s)
     s.project, s.last_report, s.overlay = None, None, None
     r = s.robot()
     if r is None:  # pusta stacja -> użyj stacji demonstracyjnej jako komórki
@@ -435,6 +455,7 @@ def new_machining_project(s: AppState, nc_path: str | None = None) -> str:
 def update_machining(s: AppState) -> str:
     if s.project is None:
         return "Brak projektu obróbki (Ctrl+M)"
+    _clear_simulation(s)
     res = s.project.update()
     s.overlay = s.project.overlay()
     _update_machining_report(s)
@@ -442,7 +463,7 @@ def update_machining(s: AppState) -> str:
 
 
 def simulate_program(s: AppState) -> str:
-    """Symulacja (bez animacji – M4): liczy przebieg, ślad TCP i czas cyklu."""
+    """Calculate a validated simulation trace for local GUI playback."""
     from ..program.simulator import simulate
     prog = s.project.result.program if s.project and s.project.result and s.project.result.ok \
         else _current_program(s)
@@ -451,6 +472,10 @@ def simulate_program(s: AppState) -> str:
     q0 = prog.robot.joints.copy()
     sim = simulate(prog)
     s.last_sim = sim
+    s.simulation_robot = prog.robot
+    s.simulation_start_joints = q0
+    s.simulation_index = 0
+    s.simulation_playing = False
     if s.trace_on:
         if s.overlay is None:
             from .render import Overlay
@@ -459,8 +484,41 @@ def simulate_program(s: AppState) -> str:
     if not sim.ok:
         prog.robot.joints = q0
         return f"✗ Symulacja: {sim.errors[0]}"
+    if sim.joints:
+        prog.robot.joints = sim.joints[0].copy()
     w = f", ostrzeżenia: {len(sim.warnings)}" if sim.warnings else ""
     return f"✓ Symulacja OK – czas cyklu ≈ {sim.cycle_time_s:.1f} s{w}"
+
+
+def seek_simulation(s: AppState, index: int) -> str:
+    if s.last_sim is None or not s.last_sim.joints or s.simulation_robot is None:
+        return "Brak próbek symulacji"
+    if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < len(s.last_sim.joints):
+        return "Indeks próbki symulacji poza zakresem"
+    s.simulation_robot.joints = s.last_sim.joints[index].copy()
+    s.simulation_index = index
+    return f"Próbka symulacji {index + 1}/{len(s.last_sim.joints)}"
+
+
+def pause_simulation(s: AppState) -> str:
+    if s.last_sim is None or not s.last_sim.ok or len(s.last_sim.joints) < 2:
+        return "Brak udanej symulacji do odtworzenia"
+    if s.simulation_playing:
+        s.simulation_playing = False
+        return "Symulacja wstrzymana"
+    if s.simulation_index >= len(s.last_sim.joints) - 1:
+        seek_simulation(s, 0)
+    s.simulation_playing = True
+    return "Odtwarzanie symulacji"
+
+
+def stop_simulation(s: AppState) -> str:
+    s.simulation_playing = False
+    if s.simulation_robot is not None and s.simulation_start_joints is not None:
+        s.simulation_robot.joints = s.simulation_start_joints.copy()
+    if s.last_sim is not None:
+        s.simulation_index = 0
+    return "Symulacja zatrzymana; przywrócono pozycję początkową"
 
 
 HANDLERS = {
@@ -475,6 +533,8 @@ HANDLERS = {
     "frames_smaller": frames_smaller, "toggle_workspace": toggle_workspace, "toggle_trace": toggle_trace,
     "open_demo": open_demo, "new_machining_project": new_machining_project, "update_machining": update_machining,
     "simulate_program": simulate_program,
+    "seek_simulation": seek_simulation, "pause_simulation": pause_simulation,
+    "stop_simulation": stop_simulation, "pause_sim": pause_simulation, "stop_sim": stop_simulation,
     "calibrate_tcp_gui": calibrate_tcp_gui, "calibrate_frame_gui": calibrate_frame_gui,
     "apply_pending_calibration": apply_pending_calibration,
 }

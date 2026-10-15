@@ -313,7 +313,7 @@ deklaracja `$APO`/zone per ruch. **Test tekstowy nie zastępuje walidacji na doc
 | v0.2 | Core | DH 6R, IK + konfiguracje, limity, TCP, układy, cele, MoveJ/L, biblioteka 1–2 robotów | stacja z kodu, naucz cel, MoveL, IK | 🟡 IK analityczne i model nominalny UR5e gotowe; brak katalogowych limitów dynamiki i pełnej listy konfiguracji |
 | v0.3 | MVP Machining | parser NC, toolpath, solver (obrót Z, wybór konfiguracji startowej), najazd/odjazd, CLI | program z G-code otwiera się w oprogramowaniu producenta | 🟡 wybór konfiguracji z listy IK gotowy; brak weryfikacji u producenta |
 | v0.4 | Simulation & Post | symulator z estymacją trapezoidalną czasu cyklu, KRL/RAPID, walidacja MoveL, odchyłka konturu, obciążenie narzędzia, dzielenie programów, **walidator centralny, manifest** | program z v0.3 symulowany, wyeksportowany i wgrany na robota | 🟡 walidator + manifest + golden files + metryka odchyłki + estymacja przyspieszeń + konfigurowalne obciążenie + dzielenie ✅; brak: test na robocie |
-| v0.5 | Usable GUI | panele, viewport, Projekt obróbki w GUI, podgląd osiągalności | cały workflow bez CLI | 🟡 panel raportu walidacji gotowy; reszta workflow GUI nadal za bramką testu T1 |
+| v0.5 | Usable GUI | panele, viewport, Projekt obróbki w GUI, animacja symulacji, podgląd osiągalności | cały workflow bez CLI | 🟡 raport walidacji i podstawowa oś czasu symulacji gotowe; reszta workflow GUI nadal ograniczona bramką testu T1 |
 | v0.6 | Advanced Machining | kalibracja TCP/układu, algorytmy orientacji, zdarzenia, CSV, MoveC, makra | kalibracja + dobry program 5-osiowy | 🟡 kalibracje TCP/baz/układu dostępne w CLI i GUI; algorytmy orientacji i makra otwarte |
 | v0.7 | Robustness | kolizje (fcl/trimesh), osie zewnętrzne, mapa kolizji | sprawdzanie kolizji i limitów, pozycjoner | ⏳ |
 | v0.8 | Dual-Arm | kalibracja baz A↔B, solver podziału ruchu, 2 zsynchronizowane programy | prosty przypadek kooperatywny działa | ⏳ (eksperymentalny kod) |
@@ -342,6 +342,9 @@ M7→v0.8, M8→v1.0, M9→v0.2 (modele robotów).
 3. Panel Projektu obróbki z `ValidationReport` został wdrożony przed pozytywnym testem T1 na żądanie
    użytkownika. To ograniczone odblokowanie GUI nie oznacza gotowości do pracy na robocie; pełny
    workflow GUI i użycie produkcyjne nadal wymagają zamknięcia bramki bezpieczeństwa v0.4.
+4. Oś czasu GUI odtwarza próbki osi z udanej symulacji; suwak pozwala przewijać próbki, pauza
+   zatrzymuje odtwarzanie, a Stop przywraca osie do pozycji początkowej. To podgląd offline,
+   nie sterowanie robotem ani reprezentacja rzeczywistego czasu cyklu.
 
 ---
 
@@ -368,6 +371,7 @@ M7→v0.8, M8→v1.0, M9→v0.2 (modele robotów).
 | Selekcja elementów sceny z widoku 3D | gui.viewport, gui.render | test_gui_spec, test_render | ✅ kliknięcie pickowalnej geometrii synchronizuje zaznaczenie drzewa i panel właściwości |
 | Edycja nazwy i pozy elementu sceny w GUI | gui.handlers, gui.main_window | test_gui_spec | ✅ panel/aktywacja dwuklikiem; jedna komenda Undo/Redo, walidacja pozy i unieważnianie wyniku CAM |
 | Panel Projektu obróbki z raportem walidacji | gui.main_window, gui.handlers | test_gui_spec (w tym Qt offscreen) | ✅ tab dokowany obok właściwości; pokazuje pełne podsumowanie, lokalizacje NC, próbki, czas i ostrzeżenia; odświeżany po obliczeniu/eksporcie |
+| Oś czasu symulacji GUI | gui.main_window, gui.handlers | test_gui_spec (Qt offscreen) | ✅ play/pauza, Stop przywracający początkowe osie, przewijanie próbek i aktualizacja widoku; stałe tempo podglądu |
 | Kalibracja TCP / układu / baz A↔B | coop.calibration | test_machining, test_gui_spec | 🟡 matematyka, CLI i przepływ GUI gotowe; brak interfejsu odczytu pozycji z robota |
 | CLI kalibracji z JSON (TCP, bazy, układ 3-punktowy) | robocode calibrate | test_calibration_cli | ✅ walidacja danych, RMS, atomowy zapis wyniku |
 | Dual-arm | coop.dual_arm | — | 🧪 eksperymentalne |
@@ -543,6 +547,9 @@ Zachowania:
 - Pasek osi czasu (przewijanie w przód i w tył).
 - Współczynnik prędkości symulacji (domyślnie 5x, szybki tryb 100x).
 - Ślad TCP (trace), czas cyklu, sprawdzanie kolizji w trakcie (obiekty w kolizji na czerwono).
+- W GUI dostępne jest podstawowe odtwarzanie udanej symulacji: play/pauza, Stop i przewijanie
+  próbek suwakiem. Stop przywraca pozycję osi sprzed obliczenia; zmiana stacji lub unieważnienie
+  projektu/programu usuwa nieaktualne próbki. Tempo podglądu jest obecnie stałe i nie oznacza czasu cyklu.
 
 ### B1.9 Generowanie programu (post-procesory)
 - Generuj (F6), generuj jako… (Shift+F6), wyślij do robota (Ctrl+F6, FTP), wybór post-procesora per robot.
@@ -597,7 +604,7 @@ GUI bez uruchamiania Qt.
 - **Menu główne** (góra), **pasek narzędzi** (pod menu, z opcją etykiet tekstowych),
   **drzewo stacji** (lewy panel, zmiana szerokości Ctrl+kółko), **widok 3D** (środek),
   **panel właściwości** (prawy, dokowalny), **pasek stanu** (dół, podpowiedzi),
-  **pasek symulacji** (dół, pojawia się przy symulacji).
+  **oś czasu symulacji** (dokowany pasek na dole).
 - Panel właściwości pokazuje nazwę i aktualną pozę względną elementu; przycisk „Edytuj właściwości…”
   lub dwuklik zaznaczonego elementu otwiera edytor XYZ [mm] i Rx/Ry/Rz [°]. Zastosowanie wymaga
   niepustej, unikatowej nazwy i poprawnej macierzy pozy. Całość jest jedną operacją Undo/Redo.
@@ -607,6 +614,9 @@ GUI bez uruchamiania Qt.
   wybierane. Zaznaczenie w drzewie działa również bez dostępnego renderera 3D.
 - Dwuklik elementu drzewa otwiera edytor nazwy i pozy. Gizmo do przesuwania/obracania w widoku 3D
   nadal pozostaje do wdrożenia.
+- Oś czasu symulacji udostępnia play/pauzę, Stop, suwak próbek i licznik bieżącej próbki.
+  Sterowanie jest aktywne po udanej symulacji; odtwarzanie aktualizuje podgląd 3D, a Stop
+  przywraca pozycję początkową robota.
 
 ### B2.2 Menu
 | Menu | Pozycje |

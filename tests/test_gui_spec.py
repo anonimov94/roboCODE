@@ -53,14 +53,78 @@ def test_machining_project_updates_validation_report_and_panel_text():
     assert "Brak raportu walidacji" in _report_text(None)
 
 
+def test_simulation_timeline_seek_and_stop_restore_initial_robot_pose():
+    state = AppState()
+    dispatch(state, "open_demo")
+    robot = state.robot()
+    initial_joints = robot.joints.copy()
+
+    assert "Symulacja OK" in dispatch(state, "simulate_program")
+    assert state.last_sim.ok and len(state.last_sim.joints) > 1
+    assert np.allclose(robot.joints, state.last_sim.joints[0])
+
+    last_index = len(state.last_sim.joints) - 1
+    assert "symulacji" in dispatch(state, "seek_simulation", last_index)
+    assert state.simulation_index == last_index
+    assert np.allclose(robot.joints, state.last_sim.joints[last_index])
+    assert dispatch(state, "pause_sim") == "Odtwarzanie symulacji"
+    assert state.simulation_playing and state.simulation_index == 0
+    assert dispatch(state, "pause_sim") == "Symulacja wstrzymana"
+    assert not state.simulation_playing
+    assert "pozycję początkową" in dispatch(state, "stop_simulation")
+    assert state.simulation_index == 0 and not state.simulation_playing
+    assert np.allclose(robot.joints, initial_joints)
+    assert "poza zakresem" in dispatch(state, "seek_simulation", len(state.last_sim.joints))
+
+
+def test_simulation_timeline_widget_seeks_and_plays(monkeypatch):
+    import pytest
+
+    pytest.importorskip("PySide6")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtTest import QTest
+    from robocode.gui.main_window import build_window
+
+    state = AppState()
+    dispatch(state, "open_demo")
+    app, window = build_window(state)
+    try:
+        assert "Symulacja OK" in dispatch(state, "simulate_program")
+        window.refresh_all()
+        assert window.simulation_slider.isEnabled()
+        assert window.simulation_slider.maximum() == len(state.last_sim.joints) - 1
+
+        window.simulation_slider.setValue(1)
+        assert state.simulation_index == 1
+        assert np.allclose(state.robot().joints, state.last_sim.joints[1])
+
+        window.simulation_play_button.click()
+        assert state.simulation_playing and window.simulation_timer.isActive()
+        QTest.qWait(window.simulation_timer.interval() + 30)
+        assert state.simulation_index > 1
+        window.qactions["prog.pause_sim"].trigger()
+        assert not state.simulation_playing and not window.simulation_timer.isActive()
+        window.qactions["prog.pause_sim"].trigger()
+        assert state.simulation_playing and window.simulation_timer.isActive()
+        window.qactions["prog.stop_sim"].trigger()
+        assert not state.simulation_playing and not window.simulation_timer.isActive()
+        assert np.allclose(state.robot().joints, state.simulation_start_joints)
+    finally:
+        window.viewport.close()
+        window.close()
+        app.quit()
+
+
 def test_changing_station_clears_stale_machining_report():
     state = AppState()
     dispatch(state, "open_demo")
     assert state.project is not None and state.last_report is not None
+    assert "Symulacja OK" in dispatch(state, "simulate_program")
 
     dispatch(state, "new_station")
 
     assert state.project is None and state.last_report is None and state.overlay is None
+    assert state.last_sim is None and state.simulation_robot is None
 
 
 def test_invalid_machining_input_is_shown_as_validation_error(tmp_path):
@@ -149,7 +213,10 @@ def test_3d_pick_selects_item_in_tree_and_properties_panel(monkeypatch):
     import pytest
 
     pytest.importorskip("PySide6")
-    pytest.importorskip("pyvistaqt")
+    try:
+        from pyvistaqt import QtInteractor  # noqa: F401
+    except ImportError as exc:
+        pytest.skip(f"pyvistaqt renderer unavailable: {exc}")
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     from robocode.gui.main_window import build_window
 
