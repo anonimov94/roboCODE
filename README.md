@@ -248,8 +248,13 @@ Ctrl+M projekt obróbki · Spacja szybka symulacja · Backspace pauza · Esc sto
 
 1. **M1 – rdzeń headless** ✅ (szkielet w repo): pozy, scena, undo, FK/IK DH, instrukcje,
    parser G-code, solver obróbki z optymalizacją obrotu Z, post KRL/RAPID, zapis stacji, CLI, testy.
-2. **M2 – GUI szkielet**: okno PySide6 z menu/paskiem z `actions.py`, drzewo stacji, panel właściwości.
-3. **M3 – widok 3D**: pyvista/VTK, siatki robotów (STL z URDF), gizmo, ślad, ścieżka zielona/czerwona.
+2. **M2 – GUI szkielet** ✅ (częściowo): okno PySide6 z menu/paskiem z `actions.py`, drzewo stacji,
+   podgląd właściwości (tylko odczyt). TODO: edycja właściwości w panelu.
+3. **M3 – widok 3D** ✅ (częściowo): `gui/render.py` (czysta funkcja `build_scene`), `gui/viewport.py` (QtInteractor),
+   robot z ogniw DH, narzędzie + TCP, układy, cele, surowiec (prostopadłościan), krzywe, ścieżka zielona /
+   punkty nieosiągalne czerwone, normalne, ślad TCP, widoki iso/góra/przód/bok/„ścieżka z bliska”,
+   rozmiar osi +/−, przestrzeń robocza (*), zrzut PNG offscreen (`robocode render`).
+   TODO: siatki STL robotów z URDF (M9), gizmo przesuwania układów/TCP (Alt / Alt+Shift), zaznaczanie kliknięciem w 3D.
 4. **M4 – symulacja**: oś czasu, prędkości, pauza/krok, czas cyklu.
 5. **M5 – kolizje**: python-fcl, mapa kolizji, kolory.
 6. **M6 – projekt obróbki w GUI**: pełny panel, podgląd osiągalności na żywo.
@@ -266,8 +271,27 @@ Ctrl+M projekt obróbki · Spacja szybka symulacja · Backspace pauza · Esc sto
 
 ## 6. Uruchomienie
 ```bash
-pip install -e .[dev]
+pip install -e .[dev,gui]
 pytest
-python -m robocode.cli demo          # demo: G-code -> robot -> KRL
-python -m robocode.cli machine examples/square.nc --post kuka --out out/
+python -m robocode.cli demo                      # G-code -> robot -> KRL
+python -m robocode.cli machine examples/square.nc --post abb --out out/
+python -m robocode.cli render --focus path --out scene.png   # zrzut 3D bez okna
+python -m robocode.cli gui                       # okno: Plik → Otwórz demo obróbki, Ctrl+M własny plik NC, Ctrl+R symulacja
 ```
+Linux bez ekranu (CI): `xvfb-run -a python -m robocode.cli gui`; potrzebne `libxcb-cursor0`.
+
+![Widok ogólny](docs/gui_demo.png)
+![Ścieżka z bliska](docs/gui_path.png)
+
+## 7. Stan obecny – co działa
+| Obszar | Stan |
+|---|---|
+| Pozy, konwencje, Kabsch | ✅ |
+| Scena + undo/redo + zapis .rcs.json | ✅ |
+| Kinematyka 6R (FK, IK numeryczne) | ✅ (model przykładowy, syntetyczny) |
+| G-code → ścieżka (G0–G3, A/B, IJK, M, S, T, E) | ✅ |
+| Projekt obróbki (obrót Z, najazd/odjazd, ✓/✗) | ✅ backend, panel GUI w M6 |
+| Symulacja (ślad, czas cyklu, osobliwości) | ✅ bez animacji (M4) |
+| Post KUKA KRL / ABB RAPID | ✅ do weryfikacji na sterowniku |
+| Widok 3D | ✅ podstawowy |
+| Kolizje, sterowniki online, URDF | ⏳ M5, M8, M9 |

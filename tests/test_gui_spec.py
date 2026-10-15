@@ -1,6 +1,6 @@
 from robocode.gui import actions as A
 from robocode.gui.handlers import AppState, dispatch
-from robocode.cli import build_demo_station
+from robocode.demo import build_demo_station
 
 
 def test_gui_definition_consistent():

@@ -17,6 +17,17 @@ class AppState:
     selection: list[Item] = field(default_factory=list)
     path: Path | None = None
     fast_sim: bool = False
+    overlay: object = None            # render.Overlay – ścieżka obróbki, ślad
+    render_opt: object = None         # render.RenderOptions
+    project: object = None            # demo.MachiningProject
+    view_request: str | None = None   # GUI ustawia kamerę po akcji ("iso", "top", "path"…)
+    trace_on: bool = True
+    last_sim: object = None
+
+    def __post_init__(self):
+        from .render import RenderOptions
+        if self.render_opt is None:
+            self.render_opt = RenderOptions()
 
     def robot(self) -> Robot | None:
         return next((i for i in self.station.walk() if isinstance(i, Robot)), None)
@@ -138,12 +149,135 @@ def toggle_fast_sim(s: AppState) -> str:
     return f"Szybka symulacja: {'wł.' if s.fast_sim else 'wył.'}"
 
 
+# ---------------- widok 3D (M3) ----------------
+
+def _auto_frame_size(s: AppState, which: str) -> None:
+    """Zbliżenie na ścieżkę -> osie w skali detalu; widok ogólny -> rozmiar domyślny."""
+    import numpy as np
+    if which == "path" and s.overlay is not None and s.overlay.path_points is not None \
+            and len(s.overlay.path_points):
+        P = np.asarray(s.overlay.path_points)
+        ext = float((P.max(0) - P.min(0)).max())
+        s.render_opt.frame_size = float(np.clip(ext * 0.25, 10.0, 80.0))
+    elif which in ("iso", "fit", "top", "front", "side"):
+        s.render_opt.frame_size = 80.0
+
+
+def _view(which: str):
+    def h(s: AppState) -> str:
+        _auto_frame_size(s, which)
+        s.view_request = which
+        return {"iso": "Widok izometryczny", "top": "Widok z góry", "front": "Widok z przodu",
+                "side": "Widok z boku", "fit": "Dopasowano widok", "path": "Widok na ścieżkę"}[which]
+    return h
+
+
+def frames_bigger(s: AppState) -> str:
+    s.render_opt.frame_size *= 1.5
+    return f"Rozmiar układów: {s.render_opt.frame_size:.0f} mm"
+
+
+def frames_smaller(s: AppState) -> str:
+    s.render_opt.frame_size = max(5.0, s.render_opt.frame_size / 1.5)
+    return f"Rozmiar układów: {s.render_opt.frame_size:.0f} mm"
+
+
+def toggle_workspace(s: AppState) -> str:
+    s.render_opt.show_workspace = not s.render_opt.show_workspace
+    return f"Przestrzeń robocza: {'wł.' if s.render_opt.show_workspace else 'wył.'}"
+
+
+def toggle_trace(s: AppState) -> str:
+    s.trace_on = not s.trace_on
+    if s.overlay is not None and not s.trace_on:
+        s.overlay.trace = None
+    return f"Ślad TCP: {'wł.' if s.trace_on else 'wył.'}"
+
+
+# ---------------- demo / obróbka / symulacja ----------------
+
+def open_demo(s: AppState) -> str:
+    from ..demo import demo_project
+    st, proj = demo_project()
+    s.station, s.project, s.undo, s.selection, s.path = st, proj, C.UndoStack(), [], None
+    s.overlay = proj.overlay()
+    s.view_request = "iso"
+    return f"Demo obróbki: {proj.result.message}"
+
+
+def new_machining_project(s: AppState, nc_path: str | None = None) -> str:
+    """Ctrl+M: plik NC -> projekt obróbki na pierwszym robocie stacji."""
+    from ..demo import MachiningProject, build_demo_station
+    from ..machining.nc_parser import parse_gcode
+    from ..machining.solver import MachiningSettings
+    if not nc_path:
+        return "Wybierz plik NC (G-code)"
+    r = s.robot()
+    if r is None:  # pusta stacja -> użyj stacji demonstracyjnej jako komórki
+        s.station, r, *_ = build_demo_station()
+    fr = r.active_frame or next((i for i in s.station.walk() if isinstance(i, Frame)), None)
+    tool = r.active_tool or (r.tools()[0] if r.tools() else None)
+    if fr is None or tool is None:
+        return "Projekt obróbki wymaga układu detalu i narzędzia na robocie"
+    tp = parse_gcode(Path(nc_path).read_text(encoding="utf-8", errors="replace"))
+    if len(tp) == 0:
+        return "Plik NC nie zawiera ruchów"
+    s.project = MachiningProject(r, fr, tool, tp, MachiningSettings())
+    res = s.project.update()
+    s.overlay = s.project.overlay()
+    s.view_request = "path"
+    _auto_frame_size(s, "path")
+    return res.message
+
+
+def update_machining(s: AppState) -> str:
+    if s.project is None:
+        return "Brak projektu obróbki (Ctrl+M)"
+    res = s.project.update()
+    s.overlay = s.project.overlay()
+    return res.message
+
+
+def simulate_program(s: AppState) -> str:
+    """Symulacja (bez animacji – M4): liczy przebieg, ślad TCP i czas cyklu."""
+    from ..program.simulator import simulate
+    prog = s.project.result.program if s.project and s.project.result and s.project.result.ok \
+        else _current_program(s)
+    if prog is None:
+        return "Brak programu do symulacji"
+    q0 = prog.robot.joints.copy()
+    sim = simulate(prog)
+    s.last_sim = sim
+    if s.trace_on:
+        if s.overlay is None:
+            from .render import Overlay
+            s.overlay = Overlay()
+        s.overlay.trace = sim.trace
+    if not sim.ok:
+        prog.robot.joints = q0
+        return f"✗ Symulacja: {sim.errors[0]}"
+    w = f", ostrzeżenia: {len(sim.warnings)}" if sim.warnings else ""
+    return f"✓ Symulacja OK – czas cyklu ≈ {sim.cycle_time_s:.1f} s{w}"
+
+
 HANDLERS = {
     "new_station": new_station, "save_station": save_station_, "save_station_as": save_station_as,
     "open_file": open_file, "undo": undo, "redo": redo, "add_frame": add_frame, "add_tool": add_tool,
     "teach_target": teach_target, "add_program": add_program, "add_movej": add_movej, "add_movel": add_movel,
     "rename_selected": rename_selected, "toggle_visible": toggle_visible, "generate_program": generate_program,
     "toggle_fast_sim": toggle_fast_sim,
+    "view_iso": _view("iso"), "view_top": _view("top"), "view_front": _view("front"), "view_side": _view("side"),
+    "view_fit": _view("fit"), "view_path": _view("path"), "frames_bigger": frames_bigger,
+    "frames_smaller": frames_smaller, "toggle_workspace": toggle_workspace, "toggle_trace": toggle_trace,
+    "open_demo": open_demo, "new_machining_project": new_machining_project, "update_machining": update_machining,
+    "simulate_program": simulate_program,
+}
+
+# komendy, które w GUI wymagają wyboru pliku: (tytuł, filtr, tryb)
+NEEDS_PATH = {
+    "open_file": ("Otwórz stację", "Stacja roboCODE (*.rcs.json)", "open"),
+    "save_station_as": ("Zapisz stację", "Stacja roboCODE (*.rcs.json)", "save"),
+    "new_machining_project": ("Plik NC", "G-code (*.nc *.gcode *.ngc *.tap *.txt);;Wszystkie (*)", "open"),
 }
 
 

@@ -1,6 +1,6 @@
 import numpy as np
 
-from robocode.cli import DEMO_NC, build_demo_station
+from robocode.demo import DEMO_NC, build_demo_station
 from robocode.coop.calibration import calibrate_bases, calibrate_tcp, frame_from_3_points
 from robocode.core import pose as P
 from robocode.machining.nc_parser import parse_gcode

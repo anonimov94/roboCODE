@@ -28,6 +28,8 @@ def _ser(item: Item) -> dict:
         d["normals"] = None if item.normals is None else item.normals.tolist()
     if isinstance(item, (Object, Tool)):
         d["mesh"] = item.mesh_path
+    if isinstance(item, Object) and item.box_size:
+        d["box"] = list(item.box_size)
     return d
 
 
@@ -49,7 +51,7 @@ def _de(d: dict, root: Station | None = None) -> Item:
     elif t == "tool":
         it = Tool(**common, mesh_path=d.get("mesh"))
     elif t == "object":
-        it = Object(**common, mesh_path=d.get("mesh"))
+        it = Object(**common, mesh_path=d.get("mesh"), box_size=tuple(d["box"]) if d.get("box") else None)
     elif t == "target":
         it = Target(**common, joints=None if d["joints"] is None else np.array(d["joints"]),
                     joint_target=d.get("joint_target", False))

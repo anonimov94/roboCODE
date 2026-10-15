@@ -73,6 +73,7 @@ class Frame(Item):
 class Object(Item):
     mesh_path: Optional[str] = None
     color: tuple = (0.7, 0.7, 0.7)
+    box_size: Optional[tuple] = None  # prymityw: prostopadłościan (dx, dy, dz) od początku układu, mm
     kind = "object"
 
 
