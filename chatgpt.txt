@@ -1,0 +1,338 @@
+Wskazówki dotyczące rozwoju projektu roboCODE
+===============================================
+
+Cel
+---
+Najpierw należy zbudować wiarygodny silnik obliczeniowy i mechanizmy walidacji, a dopiero potem rozbudowywać GUI oraz integrację z rzeczywistymi robotami przemysłowymi. Błąd może spowodować nie tylko przerwanie programu, lecz także wygenerowanie niebezpiecznej trajektorii.
+
+Uwaga
+-----
+Poniższe punkty są rekomendacjami technicznymi na podstawie opisu architektury projektu. Nie oznaczają, że każdy z wymienionych problemów występuje już w kodzie. Przed zmianami należy sprawdzić rzeczywistą implementację i istniejące testy.
+
+1. Priorytety poprawy
+---------------------
+
+1.1. Walidacja trajektorii i bezpieczeństwo
+- Sprawdzać limity osi, prędkości i przyspieszenia.
+- Sprawdzać osiągalność punktów oraz ciągłość ruchu.
+- Wykrywać kolizje na całej trajektorii, a nie tylko w punktach końcowych.
+- Blokować eksport programu, jeśli występują błędy krytyczne.
+- Przed uruchomieniem na rzeczywistym robocie wymagać symulacji i jawnego potwierdzenia operatora.
+
+1.2. Jednoznaczne konwencje geometrii
+- Zdefiniować jednostki, kierunki osi, kolejność obrotów i konwencję składania macierzy.
+- Jednoznacznie opisać transformacje pomiędzy bazą robota, TCP i układem detalu.
+- Ustalić, czy kąty wewnętrzne są przechowywane w radianach, a interfejs prezentuje je w stopniach.
+- Odrzucać niepoprawne dane geometryczne zamiast po cichu je poprawiać.
+
+1.3. Testy automatyczne
+- Każda poprawka FK, IK, interpolacji lub postprocesora powinna uruchamiać testy regresyjne.
+- Testować przypadki brzegowe, błędne dane oraz zachowanie przy wyjątkach.
+- Rozważyć testy generatywne (property-based testing), szczególnie dla geometrii i kinematyki.
+
+1.4. Postprocesory
+- Sprawdzać składnię i semantykę generowanego KUKA KRL oraz ABB RAPID dla konkretnego kontrolera i jego konfiguracji.
+- Testować narzędzia, bazy, konfiguracje osi, ruchy liniowe i kołowe oraz parametry procesu.
+- Używać testów złotych plików (golden tests) do wykrywania niezamierzonych zmian eksportu.
+- Test tekstowy nie zastępuje walidacji na docelowym kontrolerze.
+
+1.5. CI i jakość kodu
+- Automatycznie uruchamiać testy, kontrolę stylu, analizę typów i skanowanie zależności.
+- Nie dopuszczać do połączenia zmian, jeśli wymagane kontrole nie przechodzą.
+- Dzielić zmiany na małe, możliwe do zweryfikowania etapy.
+
+2. Testy kinematyki: FK i IK
+----------------------------
+
+Dla modułu kinematyki (np. robocode/kinematics/robot_model.py; ścieżkę należy potwierdzić w repozytorium) dodać testy:
+
+- FK -> IK -> FK: odzyskana poza musi zgadzać się z zadaną w określonej tolerancji.
+- Limity osi: zaakceptowane rozwiązania nie mogą przekraczać limitów.
+- Brak rozwiązania IK: zwracany jest jawny status lub wyjątek domenowy, a nie przypadkowa pozycja.
+- Osobliwości: wynik powinien zawierać odpowiedni status lub ostrzeżenie.
+- Wiele konfiguracji: solver nie może niejawnie pomijać poprawnych rozwiązań ani dublować wyników.
+- Ciągłość osi: należy unikać niepotrzebnych obrotów, np. o 360 stopni, między sąsiednimi punktami.
+
+Nie należy wymagać identycznych kątów przegubów przy teście odwrotnym: różne konfiguracje mogą prowadzić do tej samej pozy TCP.
+
+Przykładowy schemat testu (nazwy funkcji są poglądowe i trzeba je dopasować do rzeczywistego API):
+
+    pose = robot.forward_kinematics(joints)
+    solutions = robot.inverse_kinematics(pose)
+
+    assert any(
+        pose_error(robot.forward_kinematics(q), pose) < tolerance
+        for q in solutions
+    )
+
+3. Układy współrzędnych i transformacje
+---------------------------------------
+
+Sprawdzić moduł reprezentujący pozy i transformacje (np. robocode/core/pose.py; ścieżkę potwierdzić w repozytorium).
+
+Dla transformacji:
+
+    T_A_C = T_A_B @ T_B_C
+    T_A_B @ T_B_A ~= I
+
+Należy testować:
+- poprawność składania transformacji;
+- transformację odwrotną;
+- jednostki i konwencję obrotów;
+- orientacje bliskie osobliwościom kątów Eulera;
+- poprawność macierzy obrotu i transformacji jednorodnych;
+- zgodność TCP, bazy robota i układu detalu.
+
+4. Parser G-code i obróbka CNC
+------------------------------
+
+W parserze NC (np. robocode/machining/nc_parser.py; ścieżkę potwierdzić) testować:
+
+- G90/G91: współrzędne absolutne i przyrostowe;
+- G20/G21: cale i milimetry;
+- G17/G18/G19: płaszczyzny interpolacji;
+- G2/G3: kierunek i geometria łuku;
+- I/J/K oraz R: definicje łuków;
+- F: posuw;
+- komentarze, niekompletne linie i nieobsługiwane polecenia.
+
+Parser powinien utrzymywać jawny stan modalny. Jeśli polecenie nie jest obsługiwane, nie powinno być po cichu pomijane, gdy mogłoby zmienić znaczenie programu.
+
+Zwykły G-code frezarki CNC nie jest automatycznie równoważny programowi ruchu robota przemysłowego. Należy jawnie określić obsługiwany dialekt i znaczenie poleceń.
+
+5. Centralny walidator przed eksportem
+-------------------------------------
+
+Warto utworzyć jeden centralny moduł walidacji, np. robocode/program/validator.py (propozycja, niepotwierdzona ścieżka), zamiast rozrzucać niezależne kontrole po GUI, solverze i postprocesorach.
+
+Proponowany przepływ:
+1. Program źródłowy: instrukcje, baza, TCP i parametry procesu.
+2. Walidacja statyczna: jednostki, parametry, limity, brakujące dane i obsługiwane instrukcje.
+3. Walidacja trajektorii: FK/IK, ciągłość, osobliwości, prędkości, przyspieszenia i kolizje.
+4. Raport: błędy blokujące, ostrzeżenia i lokalizacja problemu.
+5. Eksport do KRL/RAPID dopiero po spełnieniu wymaganych warunków.
+
+Raport powinien wskazywać numer instrukcji, czas lub pozycję na trajektorii, rodzaj problemu i możliwy sposób jego usunięcia. Błąd nieosiągalnego punktu nie powinien być przedstawiany jedynie jako ogólne „IK failed”.
+
+6. Struktura testów
+-------------------
+
+Rozdzielić testy na trzy poziomy:
+
+- Jednostkowe: macierze, parser, FK/IK, interpolacja i walidacja instrukcji.
+- Integracyjne: G-code -> ścieżka -> trajektoria -> symulacja -> postprocesor.
+- Bezpieczeństwa i regresji: kolizje, błędne dane, limity, utrata komunikacji, niepoprawne programy i awarie eksportu.
+
+7. Zalecana kolejność prac
+--------------------------
+
+Etap 1: Ustalić konwencje matematyczne i typy danych.
+Kryterium: testy transformacji i jednostek przechodzą.
+
+Etap 2: Zweryfikować FK/IK i limity osi.
+Kryterium: testy osiągalności, konfiguracji i osobliwości przechodzą.
+
+Etap 3: Zweryfikować parser G-code i ścieżki.
+Kryterium: wszystkie obsługiwane polecenia mają testy.
+
+Etap 4: Dodać walidator trajektorii i symulację.
+Kryterium: program jest sprawdzany na całej trajektorii.
+
+Etap 5: Zweryfikować postprocesory.
+Kryterium: testy regresyjne przechodzą, a pliki są walidowane na docelowym kontrolerze, jeśli dostępne są odpowiednie narzędzia.
+
+Etap 6: Rozbudować GUI i sterowniki online.
+Kryterium: GUI korzysta z backendu, a komunikacja ma jawne zabezpieczenia i obsługę błędów.
+
+Nie zaczynać od pełnej obsługi dwóch robotów. Najpierw doprowadzić pojedynczego robota do wiarygodnego działania w całym przepływie: import ścieżki, kinematyka, walidacja, symulacja i eksport.
+
+8. Audyt przed wprowadzaniem zmian
+----------------------------------
+
+Przed poprawianiem kodu:
+- Przejrzeć rzeczywiste pliki źródłowe i testy.
+- Uruchomić istniejący zestaw testów i zapisać stan początkowy.
+- Oddzielić błędy potwierdzone od potencjalnych ryzyk i rekomendacji.
+- Dla każdego błędu przygotować minimalny test reprodukujący.
+- Wprowadzać małe zmiany i po każdej uruchamiać odpowiednie testy.
+- Nie uznawać funkcji opisanych w README za zaimplementowane bez sprawdzenia kodu.
+
+Priorytet startowy
+------------------
+
+Zacząć od audytu kinematyki i układów współrzędnych. Błąd w tym obszarze może propagować się przez solver, symulację i postprocesor, prowadząc do nieprawidłowego ruchu robota.
+
+
+9. Dokładność trajektorii i jakości obróbki
+-------------------------------------------
+
+Samo osiągnięcie punktów końcowych nie gwarantuje, że robot wykona poprawną ścieżkę pomiędzy nimi. Wprowadzić kontrolę całej trajektorii:
+
+- mierzyć odchylenie TCP od ścieżki źródłowej;
+- kontrolować błąd orientacji narzędzia;
+- sprawdzać maksymalny błąd konturu i odchylenie od powierzchni;
+- zagęszczać próbkowanie w obszarach dużej krzywizny, przy zmianach orientacji i w pobliżu przeszkód;
+- porównywać ścieżkę wejściową, trajektorię po interpolacji oraz ruch wynikający z postprocesora;
+- definiować tolerancje jawnie i przypisywać im jednostki.
+
+Gęste próbkowanie ułatwia wykrywanie błędów, ale samo w sobie nie gwarantuje matematycznie braku kolizji ani dotrzymania tolerancji. W krytycznych obszarach należy stosować odpowiednie metody geometryczne lub konserwatywne marginesy.
+
+10. Model narzędzia, detalu i procesu
+------------------------------------
+
+Model geometryczny powinien obejmować nie tylko TCP, ale także rzeczywistą geometrię narzędzia, oprawki, elementów mocujących, detalu i innych części robota, które mogą wejść w kolizję.
+
+Dodać:
+- osobne definicje narzędzi i ich geometrii;
+- jawne powiązanie narzędzia z TCP i układem współrzędnych;
+- model detalu oraz mocowań;
+- kontrolę kolizji oprawki i korpusu narzędzia, nie tylko punktu TCP;
+- parametry procesu, takie jak posuw i ograniczenia ruchu, jako dane walidowane;
+- wersjonowanie modeli narzędzi, baz i detali.
+
+Zmiana geometrii narzędzia lub bazy powinna unieważniać wyniki walidacji zależne od poprzedniej konfiguracji.
+
+11. Zarządzanie konfiguracją i odtwarzalność wyników
+----------------------------------------------------
+
+Każdy wygenerowany program powinien być powiązany z dokładną konfiguracją, dla której został zwalidowany.
+
+Zapisywać co najmniej:
+- wersję roboCODE i identyfikator commitu;
+- wersję konfiguracji robota i jego parametry kinematyczne;
+- narzędzie, TCP, bazę i układ detalu;
+- wersję postprocesora i docelowy model kontrolera;
+- parametry obróbki i tolerancje walidacji;
+- wynik walidacji oraz listę ostrzeżeń;
+- sumy kontrolne plików wejściowych i wynikowych.
+
+Po zmianie istotnego parametru program powinien zostać ponownie zwalidowany. Nie wolno traktować poprzedniego raportu jako ważnego dla innej konfiguracji.
+
+12. Obsługa błędów, diagnostyka i logi
+-------------------------------------
+
+Błędy powinny być jednoznaczne, możliwe do odtworzenia i zrozumiałe dla użytkownika.
+
+Zalecenia:
+- stosować typowane wyjątki domenowe zamiast ogólnego przechwytywania wszystkich wyjątków;
+- nie ignorować błędów i nie zastępować niepoprawnych danych wartościami domyślnymi bez ostrzeżenia;
+- w raportach podawać etap, numer instrukcji, pozycję na ścieżce i parametry powodujące błąd;
+- oddzielić błędy blokujące eksport od ostrzeżeń;
+- dodać logi z poziomami DEBUG, INFO, WARNING i ERROR;
+- zapewnić możliwość zapisania raportu diagnostycznego bez danych poufnych;
+- testować awarie plików, brakujące zależności, błędne konfiguracje i przerwaną komunikację.
+
+Komunikat dla użytkownika powinien wyjaśniać, co się nie powiodło i gdzie szukać przyczyny, bez ujawniania wyłącznie śladu stosu.
+
+13. Niezawodność interfejsu i operacji na plikach
+------------------------------------------------
+
+GUI nie powinno wykonywać ciężkich obliczeń w głównym wątku, jeśli powoduje to blokowanie interfejsu.
+
+Dodać:
+- anulowanie długich obliczeń, jeśli jest bezpieczne;
+- wskaźnik postępu i etap aktualnego zadania;
+- kontrolę błędów odczytu i zapisu;
+- zapis wyników do pliku tymczasowego, a następnie atomową podmianę pliku docelowego, gdy system plików na to pozwala;
+- ochronę przed przypadkowym nadpisaniem plików;
+- jawne oznaczanie wyników nieaktualnych po zmianie danych wejściowych;
+- undo/redo dla operacji edycji sceny, z testami poprawności historii.
+
+Nie wolno pozostawiać częściowo zapisanego programu jako pozornie poprawnego wyniku eksportu.
+
+14. Granice bezpieczeństwa przy sterowaniu rzeczywistym robotem
+--------------------------------------------------------------
+
+Symulator i zwykły program OLP nie zastępują certyfikowanych funkcji bezpieczeństwa sterownika ani procedur bezpieczeństwa stanowiska.
+
+Jeśli zostanie dodana komunikacja z rzeczywistym robotem:
+- domyślnie uruchamiać projekt w trybie offline;
+- wyraźnie oddzielić generowanie programu od jego wysyłania i uruchamiania;
+- wymagać jawnego potwierdzenia operatora przed operacjami wykonawczymi;
+- sprawdzać stan połączenia, identyfikację robota i zgodność konfiguracji;
+- obsługiwać timeouty, utratę połączenia i niejednoznaczny stan polecenia;
+- nigdy nie wznawiać automatycznie ruchu po błędzie komunikacji bez bezpiecznej procedury;
+- nie opierać funkcji bezpieczeństwa wyłącznie na GUI lub symulacji;
+- dokumentować analizę ryzyka i wymagane procedury stanowiskowe.
+
+Funkcje bezpieczeństwa maszyny muszą być realizowane i walidowane zgodnie z wymaganiami właściwymi dla stanowiska i sterownika.
+
+15. Wydajność i stabilność obliczeń numerycznych
+------------------------------------------------
+
+Dodać testy dla:
+- wartości bliskich osobliwościom;
+- bardzo dużych i bardzo małych wartości wejściowych;
+- błędów zaokrągleń i kumulacji błędów w długich trajektoriach;
+- niepoprawnych wartości NaN i nieskończoności;
+- bardzo długich programów i dużej liczby segmentów;
+- deterministyczności wyników dla tych samych danych wejściowych.
+
+Nie używać jednej tolerancji numerycznej do wszystkich operacji. Osobno określić tolerancje pozycji, orientacji, geometrii i porównań numerycznych. Unikać porównywania liczb zmiennoprzecinkowych przez dokładną równość.
+
+Optymalizacje wprowadzać dopiero po pomiarach profilujących i przy zachowaniu testów regresyjnych.
+
+16. Testy mutacyjne, fuzzing i testy odporności
+----------------------------------------------
+
+Poza zwykłymi testami dodać:
+- fuzzing parsera G-code i plików konfiguracyjnych;
+- testy mutacyjne, które sprawdzają, czy zestaw testów wykrywa celowo wprowadzone błędy;
+- losowe, ale poprawne konfiguracje geometryczne do testowania FK/IK;
+- testy z uszkodzonymi, uciętymi i niekompletnymi plikami;
+- testy powtarzalności wyników;
+- testy regresyjne dla każdego znalezionego wcześniej błędu.
+
+Fuzzing powinien działać w kontrolowanym środowisku i mieć limity czasu oraz pamięci.
+
+17. Dokumentacja kontraktów i obsługiwanych funkcji
+--------------------------------------------------
+
+Dla każdego modułu określić:
+- wejścia i wyjścia;
+- jednostki i układy współrzędnych;
+- dopuszczalne zakresy danych;
+- zachowanie w przypadku błędu;
+- obsługiwane i nieobsługiwane funkcje;
+- gwarancje, których moduł nie zapewnia.
+
+Utrzymywać macierz zgodności: funkcja -> obsługiwany dialekt/robot/kontroler -> test -> status implementacji. Wyraźnie oznaczać funkcje planowane, eksperymentalne i gotowe do użycia.
+
+18. Architektura danych i oddzielenie warstw
+-------------------------------------------
+
+- Oddzielić logikę domenową i obliczeniową od GUI.
+- Nie pozwalać, aby widoki GUI bezpośrednio modyfikowały stan wewnętrzny modelu bez walidacji.
+- Ustalić jeden jawny model danych programu i konfiguracji.
+- Walidować dane na granicach systemu: import, API, GUI, zapis i eksport.
+- Unikać duplikowania obliczeń kinematycznych w kilku modułach.
+- Wprowadzać wersjonowanie formatów plików projektu i kontrolowane migracje.
+- Zapewnić kompatybilność lub czytelny błąd przy otwieraniu starszych plików.
+
+19. Kryteria ukończenia funkcji
+------------------------------
+
+Funkcję uznawać za gotową dopiero wtedy, gdy:
+- ma jasno opisaną specyfikację i ograniczenia;
+- ma testy jednostkowe i, jeśli trzeba, integracyjne;
+- błędne dane są obsługiwane jawnie;
+- diagnostyka pozwala ustalić przyczynę błędu;
+- dokumentacja odpowiada rzeczywistej implementacji;
+- CI przechodzi;
+- zmiany nie unieważniają wcześniejszych wyników bez ponownej walidacji;
+- w funkcjach związanych z ruchem rzeczywistym przeprowadzono odpowiednią walidację na docelowym środowisku.
+
+20. Proponowana kolejność dodatkowych prac
+-----------------------------------------
+
+1. Dodać diagnostykę, jawne błędy i testy odporności.
+2. Wprowadzić identyfikację konfiguracji i odtwarzalność wyników.
+3. Rozszerzyć walidację o dokładność ścieżki, orientację i geometrię narzędzia.
+4. Dodać model detalu, mocowań i pełniejszą kontrolę kolizji.
+5. Wzmocnić testy parsera przez fuzzing i testy mutacyjne.
+6. Dopiero potem optymalizować wydajność oraz rozwijać sterowanie online.
+
+Zasada końcowa
+--------------
+
+Każdy program wygenerowany przez roboCODE powinien być powiązany z konkretną konfiguracją, mieć raport walidacji i dać się odtworzyć. Brak danych, nieobsługiwana instrukcja lub niepewny wynik obliczeń powinny prowadzić do jawnego błędu albo ostrzeżenia, nigdy do cichego wygenerowania pozornie poprawnego programu.
