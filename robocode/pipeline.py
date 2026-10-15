@@ -170,8 +170,11 @@ def export_program(program: Program, post: str, out_dir: str | Path, limits: Val
         return _finish(rep, manifest, out_dir, name, False, [], "✗ Walidacja nie przeszła – eksport zablokowany")
 
     pp = get_post(post, event_map, tool_load)
-    line_limit = pp.MAX_LINES_X_PROG if max_lines_per_file is None else max_lines_per_file
-    if not isinstance(line_limit, int) or isinstance(line_limit, bool) or line_limit < 1:
+    # splitting is OPT-IN (review of Copilot change): a split part needs a restart sequence, and the
+    # default must never silently cut a CAM program into pieces
+    line_limit = max_lines_per_file
+    if line_limit is not None and (not isinstance(line_limit, int) or isinstance(line_limit, bool)
+                                   or line_limit < 1):
         rep.add(Severity.ERROR, "PROGRAM_LINE_LIMIT", "Limit linii na plik musi być dodatnią liczbą całkowitą",
                 stage="post")
         return _finish(rep, manifest, out_dir, name, False, [], "✗ Nieprawidłowy limit linii na plik")
@@ -190,10 +193,30 @@ def export_program(program: Program, post: str, out_dir: str | Path, limits: Val
         rep.add(Severity.WARNING, "TOOL_LOAD_DEFAULT", message, stage="post", hint=hint)
     manifest["post"].update({"class": type(pp).__name__, "version": getattr(pp, "version", "?")})
     try:
-        chunks = pp.generate_chunks(program, line_limit)
+        if line_limit is None:
+            chunks = [(program, pp.generate(program))]
+            n_lines = len(chunks[0][1].splitlines())
+            if n_lines > pp.MAX_LINES_X_PROG:
+                rep.add(Severity.WARNING, "PROGRAM_LONG", f"Program ma {n_lines} linii (> {pp.MAX_LINES_X_PROG}); "
+                        "sprawdź limit pamięci sterownika", stage="post",
+                        hint="w razie potrzeby podziel: --max-lines-per-file N (z bezpiecznym wznowieniem części)")
+        else:
+            chunks = pp.generate_chunks(program, line_limit)
     except (ValueError, RuntimeError) as exc:
         rep.add(Severity.ERROR, "PROGRAM_SPLIT", str(exc), stage="post")
         return _finish(rep, manifest, out_dir, name, False, [], "✗ Nie można bezpiecznie podzielić programu")
+    if len(chunks) > 1:
+        # every part (incl. the inserted retract / approach / plunge moves) is validated on its own
+        for part, _ in chunks:
+            prep, _ = validate_program(part, limits, mapped_events=set(event_map or ()),
+                                       collision_checker=collision_checker)
+            for issue in prep.errors:
+                issue.message = f"[{part.name}] {issue.message}"
+                issue.stage = "split"
+                rep.issues.append(issue)
+        if not rep.ok:
+            return _finish(rep, manifest, out_dir, name, False, [],
+                           "✗ Część programu po podziale nie przeszła walidacji – eksport zablokowany")
     for part, text in chunks:
         rep.extend(verify_post_output(post, text, part, limits))
     if not rep.ok:
@@ -208,8 +231,9 @@ def export_program(program: Program, post: str, out_dir: str | Path, limits: Val
     outputs = [atomic_write_text(out_dir / f"{part.name}{pp.ext}", text) for part, text in chunks]
     if len(outputs) > 1:
         rep.add(Severity.INFO, "PROGRAM_SPLIT", f"Program podzielono na {len(outputs)} pliki "
-                f"(maks. {line_limit} linii każdy); uruchamiaj części kolejno.", stage="post",
-                hint="przed uruchomieniem sprawdź transfer i bezpieczne wznowienie każdej części")
+                f"(maks. {line_limit} linii każdy); każda część od 2. zaczyna od PTP nad ścieżką, "
+                "włączenia wrzeciona i zagłębienia; każda poza ostatnią kończy odjazdem.", stage="post",
+                hint="uruchamiaj części kolejno; pierwszy przebieg w T1")
     msg = f"✓ Zapisano {len(outputs)} plik(ów) (ostrzeżenia: {len(rep.warnings)})"
     return _finish(rep, manifest, out_dir, name, True, outputs, msg)
 

@@ -58,7 +58,8 @@ def test_simulator_reports_proxy_collision_at_sampled_joint_configuration():
 
     result = simulate(program, collision_checker=CollisionChecker(link_radius_mm=1))
 
-    assert any(issue.code == "COLLISION_PROXY" for issue in result.report.warnings)
+    assert any(issue.code == "COLLISION_PROXY" for issue in result.report.errors)  # blocking
+    assert not result.ok
 
 
 def test_collision_checker_rejects_invalid_obstacle_size():
@@ -83,3 +84,19 @@ def test_pipeline_records_collision_map_in_manifest(tmp_path):
     assert config["link_radius_mm"] == 18
     assert config["pairs"] == [["Robot/link_2", "Fixture"], ["Robot/tool:Tool", "Fixture"]]
     assert config["tool_proxy_enabled"]
+
+
+def test_detected_collision_blocks_export(tmp_path):
+    """Review of the Copilot change: a detected collision must block the controller file."""
+    from robocode.core.scene import Object
+    from robocode.demo import build_demo_station
+    from robocode.pipeline import export_program
+    from robocode.machining.nc_parser import parse_gcode
+    from robocode.machining.solver import MachiningSettings, solve
+    st, r, fr, tool = build_demo_station()
+    prog = solve(r, r.frame_rel_base(fr), tool.tcp(), parse_gcode(DEMO_NC), MachiningSettings()).program
+    # a big block around the robot's upper arm
+    st.add(Object(name="Wall", pose=P.transl(-2000, -2000, 300), box_size=(4000, 4000, 2000)))
+    job = export_program(prog, "kuka", tmp_path)
+    assert not job.ok and any(i.code == "COLLISION_PROXY" for i in job.report.errors)
+    assert not list(tmp_path.glob("*.src"))

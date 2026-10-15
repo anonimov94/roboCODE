@@ -165,11 +165,12 @@ def simulate(program: Program, step_mm: float | None = None, tol: SimTolerances 
         if s:
             warn_once(("sing", idx), W, "SINGULARITY", s, instruction=idx, source_line=line)
         for hit in collision_checker.check(root, r, qq):
-            warn_once(("collision", idx, hit.pair), W, "COLLISION_PROXY",
-                      f"Możliwa kolizja {hit.component} z obiektem {hit.obstacle} "
-                      "(test uproszczonych brył)",
+            # a hit of the (thin, non-conservative) proxy is almost certainly a real collision -> BLOCK
+            # (review of the Copilot change: it was only a warning, so a detected collision was exported)
+            warn_once(("collision", idx, hit.pair), E, "COLLISION_PROXY",
+                      f"Kolizja {hit.component} z obiektem {hit.obstacle} (test uproszczonych brył)",
                       instruction=idx, source_line=line,
-                      hint="sprawdź dokładną geometrię w symulatorze producenta")
+                      hint="zmień ustawienie detalu/robota albo wyłącz parę w mapie kolizji, jeśli kontakt jest zamierzony")
 
     for idx, ins in enumerate(program.instructions):
         line = getattr(ins, "src_line", None)

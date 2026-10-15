@@ -31,11 +31,11 @@ def test_validator_reports_cartesian_contour_deviation_in_millimeters():
     assert report.ok
     assert sim is not None and sim.contour_samples > 0
     assert 0 <= sim.mean_contour_deviation_mm <= sim.max_contour_deviation_mm < 0.01
-    metric = next(issue for issue in report.issues if issue.code == "CONTOUR_DEVIATION")
+    metric = next(issue for issue in report.issues if issue.code == "IK_TRACKING_RESIDUAL")
     assert "mm" in metric.message
     assert f"{sim.max_contour_deviation_mm:.4f} mm" in metric.message
     assert f"{sim.contour_samples} próbek MoveL/MoveC" in metric.message
-    assert "CONTOUR_DEVIATION" in report.summary()
+    assert "IK_TRACKING_RESIDUAL" in report.summary()
 
 
 def codes(rep, sev="errors"):

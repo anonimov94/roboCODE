@@ -105,69 +105,131 @@ class PostProcessor:
         self.ProgFinish(prog.name)
         return "\n".join(self.lines) + "\n"
 
-    def generate_chunks(self, prog: Program, max_lines: int) -> list[tuple[Program, str]]:
-        """Render standalone, instruction-boundary parts without exceeding the line limit."""
+    SPLIT_RETRACT_MM = 50.0  # safe restart distance along the tool axis between program parts
+
+    def _instruction_line_count(self, ins, robot) -> int:
+        probe = self.__class__(event_map=self.event_map, tool_load=self.tool_load)
+        probe.robot = robot
+        probe.lines = []
+        probe._emit_instruction(ins)
+        return len(probe.lines)
+
+    def generate_chunks(self, prog: Program, max_lines: int,
+                        retract_mm: float | None = None) -> list[tuple[Program, str]]:
+        """Split a program into standalone parts with a SAFE restart sequence (review of Copilot change).
+
+        Every part after the first starts with: frame/tool/speed/rounding state, the active tool and
+        spindle events, a joint move (PTP) to a point `retract_mm` above its first target along the tool
+        axis and a linear plunge. Every part except the last ends with a linear retract along the tool
+        axis. Without this a part would start with LIN inside the material (KUKA BCO run) and without
+        the spindle running. Line counting is O(n) (was O(n^2)). The added moves are validated by the
+        pipeline. Raises ValueError when a safe split is impossible.
+        """
         if not isinstance(max_lines, int) or isinstance(max_lines, bool) or max_lines < 1:
             raise ValueError("max_lines musi być dodatnią liczbą całkowitą")
+        retract = self.SPLIT_RETRACT_MM if retract_mm is None else float(retract_mm)
+        robot = prog.robot
+        header = len(self.__class__(event_map=self.event_map, tool_load=self.tool_load)
+                     .generate(Program(name=prog.name, robot=robot)).splitlines())
+        counts = [self._instruction_line_count(ins, robot) for ins in prog.instructions]
+        if header + sum(counts) <= max_lines:
+            return [(prog, self.generate(prog))]
+        if robot is None or getattr(robot, "model", None) is None:
+            raise ValueError("Dzielenie programu wymaga robota (ruchy bezpiecznego wznowienia)")
+        model = robot.model
 
-        frame: SetFrame | None = None
-        tool: SetTool | None = None
-        rounding: SetRounding | None = None
+        frame = tool = rounding = None
         speed_values: dict[str, float] = {}
-        prefix: list[Instruction] = []
-        body: list[Instruction] = []
-        chunks: list[tuple[list[Instruction], list[Instruction]]] = []
+        ev_tool = ev_speed = ev_spindle = None
+        last_q = None
+        last_pose = None
+        parts: list[list[Instruction]] = []
+        cur: list[Instruction] = []
+        cur_lines = header
 
-        def state_prefix() -> list[Instruction]:
-            items: list[Instruction] = [item for item in (frame, tool) if item is not None]
+        def motion_target(ins):
+            if isinstance(ins, MoveL):
+                return ins.pose, ins.joints
+            if isinstance(ins, MoveC):
+                return ins.pose_end, ins.joints_end
+            if isinstance(ins, MoveJ):
+                return ins.pose, ins.joints
+            return None, None
+
+        def offset_move(pose, seed, kind):
+            if pose is None or seed is None or frame is None or tool is None:
+                raise ValueError("Nie można bezpiecznie podzielić programu: brak pozy/osi przy granicy części")
+            target = pose @ np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, -retract], [0, 0, 0, 1.0]])
+            base_T = frame.pose @ target @ np.linalg.inv(tool.pose)
+            q = model.ik(base_T, np.asarray(seed, float))
+            if q is None or np.abs(q - np.asarray(seed, float)).max() > 45.0:
+                raise ValueError(f"Nie można bezpiecznie podzielić programu: punkt {kind} "
+                                 f"{retract:g} mm nad ścieżką jest nieosiągalny")
+            ins = (MoveL(pose=target, joints=q) if kind == "odjazdu" else MoveJ(joints=q, pose=target))
+            ins.inserted_by_split = True
+            return ins
+
+        def restart_prefix(first_motion):
+            items: list[Instruction] = [x for x in (frame, tool) if x is not None]
             if speed_values:
                 items.append(SetSpeed(**speed_values))
             if rounding is not None:
                 items.append(rounding)
+            items += [Call(c) for c in (ev_tool, ev_speed, ev_spindle) if c]
+            pose, q = motion_target(first_motion)
+            items.append(offset_move(pose, q, "najazdu"))
+            for x in items:
+                x.inserted_by_split = True
             return items
 
-        def rendered_line_count(candidate_instructions: list[Instruction], chunk_index: int = 1) -> int:
-            candidate = Program(name=f"{prog.name}_{chunk_index:03d}", robot=prog.robot,
-                                instructions=list(candidate_instructions))
-            candidate_post = self.__class__(event_map=self.event_map, tool_load=self.tool_load)
-            return len(candidate_post.generate(candidate).splitlines())
+        def lines_of(items):
+            return sum(self._instruction_line_count(x, robot) for x in items)
 
-        for ins in prog.instructions:
-            candidate_instructions = prefix + body + [ins]
-            if rendered_line_count(candidate_instructions) > max_lines:
-                if not body:
-                    raise ValueError(f"Instrukcja {type(ins).__name__} przekracza limit {max_lines} linii")
-                chunks.append((prefix, body))
-                prefix, body = state_prefix(), []
-                candidate_instructions = prefix + [ins]
-                if rendered_line_count(candidate_instructions, len(chunks) + 1) > max_lines:
-                    raise ValueError(f"Instrukcja {type(ins).__name__} wraz ze stanem wymaganym "
-                                     f"do kontynuacji przekracza limit {max_lines} linii")
-            body.append(ins)
+        for k, ins in enumerate(prog.instructions):
+            is_motion = isinstance(ins, (MoveJ, MoveL, MoveC))
+            # reserve room for the retract that closes this part
+            if is_motion and cur and last_pose is not None and cur_lines + counts[k] + 2 > max_lines:
+                retract_ins = offset_move(last_pose, last_q, "odjazdu")
+                cur.append(retract_ins)
+                parts.append(cur)
+                cur = restart_prefix(ins)
+                cur_lines = header + lines_of(cur)
+                if cur_lines + counts[k] + 2 > max_lines:
+                    raise ValueError(f"Limit {max_lines} linii jest za mały na sekwencję bezpiecznego wznowienia")
+            cur.append(ins)
+            cur_lines += counts[k]
             if isinstance(ins, SetFrame):
                 frame = ins
             elif isinstance(ins, SetTool):
                 tool = ins
+            elif isinstance(ins, SetRounding):
+                rounding = ins
             elif isinstance(ins, SetSpeed):
                 for key in ("linear_mm_s", "joint_deg_s", "linear_acc", "joint_acc"):
                     value = getattr(ins, key)
                     if value is not None:
                         speed_values[key] = value
-            elif isinstance(ins, SetRounding):
-                rounding = ins
-
-        if body:
-            chunks.append((prefix, body))
-
-        if len(chunks) == 1:
-            return [(prog, self.generate(prog))]
+            elif isinstance(ins, Call):
+                name = self.split_call(ins.name)[0]
+                if name == "SetTool":
+                    ev_tool = ins.name
+                elif name == "Spindle":
+                    ev_speed = ins.name
+                elif name in ("SpindleOn", "SpindleOnCCW"):
+                    ev_spindle = ins.name
+                elif name == "SpindleOff":
+                    ev_spindle = None
+            if is_motion:
+                pose, q = motion_target(ins)
+                if pose is not None and q is not None:
+                    last_pose, last_q = pose, q
+        if cur:
+            parts.append(cur)
 
         rendered = []
-        for index, (state, instructions) in enumerate(chunks, start=1):
-            name = f"{prog.name}_{index:03d}"
-            part = Program(name=name, robot=prog.robot, instructions=state + instructions)
-            post = self.__class__(event_map=self.event_map, tool_load=self.tool_load)
-            text = post.generate(part)
+        for index, instructions in enumerate(parts, start=1):
+            part = Program(name=f"{prog.name}_{index:03d}", robot=robot, instructions=instructions)
+            text = self.__class__(event_map=self.event_map, tool_load=self.tool_load).generate(part)
             if len(text.splitlines()) > max_lines:
                 raise RuntimeError("Wewnętrzny błąd dzielenia: wygenerowana część przekracza limit linii")
             rendered.append((part, text))
