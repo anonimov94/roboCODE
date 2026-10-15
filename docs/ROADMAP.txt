@@ -76,7 +76,8 @@
    [x] raport HTML z manifestu          [x] przykladowe programy NC
    [x] launcher + roboCODE.exe          [x] test_exe.bat (12/12 OK)
    [x] konfiguracje PyCharm (.run)      [x] plik CI (GitHub Actions)
-   [ ] CI faktycznie uruchomione  - blokada rozliczen konta GitHub
+   [x] workflow CI w .github/workflows/ci.yml
+   [ ] udany przebieg CI na GitHub - ostatnie joby zakonczyly sie przed krokami (brak logow)
    [ ] scalic PR #1 (galaz poc-0.2) do main
 =============================================================================
  KOLEJKA - CO ROBIC TERAZ (od gory):

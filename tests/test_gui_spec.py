@@ -78,8 +78,6 @@ def test_invalid_machining_input_is_shown_as_validation_error(tmp_path):
 def test_main_window_displays_machining_validation_report(monkeypatch):
     import pytest
 
-    import json
-
     pytest.importorskip("PySide6")
     monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
     from robocode.gui.main_window import build_window
