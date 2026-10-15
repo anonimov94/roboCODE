@@ -33,6 +33,7 @@ class Actor:
     line_width: float | None = None
     point_size: float | None = None
     kind: str = "surface"        # surface | lines | points
+    item_id: int | None = None
 
 
 @dataclass
@@ -59,14 +60,14 @@ def _pv():
     return pv
 
 
-def axes_actors(T: np.ndarray, size: float, name: str) -> list[Actor]:
+def axes_actors(T: np.ndarray, size: float, name: str, item_id: int | None = None) -> list[Actor]:
     pv = _pv()
     o = T[:3, 3]
     out = []
     for i, ax in enumerate("xyz"):
         d = T[:3, i]
         arrow = pv.Arrow(start=o, direction=d, scale=size, tip_length=0.25, tip_radius=0.08, shaft_radius=0.03)
-        out.append(Actor(f"{name}:{ax}", arrow, COL[ax]))
+        out.append(Actor(f"{name}:{ax}", arrow, COL[ax], item_id=item_id))
     return out
 
 
@@ -78,19 +79,21 @@ def robot_actors(r: Robot, opt: RenderOptions) -> list[Actor]:
     out: list[Actor] = []
     # podstawa
     out.append(Actor(f"{r.name}:base", pv.Cylinder(center=base[:3, 3] + base[:3, 2] * 40, direction=base[:3, 2],
-                                                   radius=opt.link_radius * 3, height=80), COL["joint"]))
+                                                   radius=opt.link_radius * 3, height=80), COL["joint"],
+                     item_id=r.id))
     rad = opt.link_radius
     for i in range(len(pts) - 1):
         a, b = pts[i], pts[i + 1]
         L = np.linalg.norm(b - a)
         if L > 1e-6:
             out.append(Actor(f"{r.name}:link{i}", pv.Cylinder(center=(a + b) / 2, direction=b - a,
-                                                              radius=rad, height=L), COL["link"]))
-        out.append(Actor(f"{r.name}:j{i}", pv.Sphere(radius=rad * 1.25, center=a), COL["joint"]))
+                                                              radius=rad, height=L), COL["link"], item_id=r.id))
+        out.append(Actor(f"{r.name}:j{i}", pv.Sphere(radius=rad * 1.25, center=a), COL["joint"],
+                         item_id=r.id))
         rad = max(rad * 0.85, 10)
     flange = frames[-1]
     out.append(Actor(f"{r.name}:flange", pv.Cylinder(center=flange[:3, 3], direction=flange[:3, 2],
-                                                     radius=rad * 1.3, height=8), COL["joint"]))
+                                                     radius=rad * 1.3, height=8), COL["joint"], item_id=r.id))
     # narzędzia
     for t in r.tools():
         tcp = flange @ t.tcp()
@@ -99,8 +102,8 @@ def robot_actors(r: Robot, opt: RenderOptions) -> list[Actor]:
         if L > 1e-6:
             out.append(Actor(f"{t.name}:body", pv.Cylinder(center=(p0 + p1) / 2, direction=p1 - p0,
                                                            radius=18 if t is r.active_tool else 10, height=L),
-                             COL["tool"], 0.9 if t is r.active_tool else 0.4))
-        out += axes_actors(tcp, opt.frame_size * 0.6, f"{t.name}:tcp")
+                             COL["tool"], 0.9 if t is r.active_tool else 0.4, item_id=t.id))
+        out += axes_actors(tcp, opt.frame_size * 0.6, f"{t.name}:tcp", item_id=t.id)
     if opt.show_workspace:
         reach = sum(abs(d.a) + abs(d.d) for d in r.model.dh[1:])
         out.append(Actor(f"{r.name}:workspace", pv.Sphere(radius=reach, center=pts[1], theta_resolution=40,
@@ -113,11 +116,11 @@ def object_actor(o: Object) -> Actor | None:
     if o.box_size:
         dx, dy, dz = o.box_size
         m = pv.Box(bounds=(0, dx, 0, dy, 0, dz)).transform(o.pose_abs(), inplace=False)
-        return Actor(o.name, m, COL["object"], 0.22)
+        return Actor(o.name, m, COL["object"], 0.22, item_id=o.id)
     if not o.mesh_path or not Path(o.mesh_path).exists():
         return None
     m = pv.read(o.mesh_path).transform(o.pose_abs(), inplace=False)
-    return Actor(o.name, m, COL["object"], 0.95)
+    return Actor(o.name, m, COL["object"], 0.95, item_id=o.id)
 
 
 def curve_actor(c: Curve) -> Actor | None:
@@ -126,7 +129,7 @@ def curve_actor(c: Curve) -> Actor | None:
         return None
     T = c.pose_abs()
     P = (T[:3, :3] @ c.points.T).T + T[:3, 3]
-    return Actor(c.name, pv.lines_from_points(P), COL["curve"], line_width=3, kind="lines")
+    return Actor(c.name, pv.lines_from_points(P), COL["curve"], line_width=3, kind="lines", item_id=c.id)
 
 
 def overlay_actors(ov: Overlay) -> list[Actor]:
@@ -168,9 +171,10 @@ def build_scene(station: Station, overlay: Overlay | None = None,
         if isinstance(it, Robot):
             out += robot_actors(it, opt)
         elif isinstance(it, Frame):
-            out += axes_actors(it.pose_abs(), opt.frame_size, it.name)
+            out += axes_actors(it.pose_abs(), opt.frame_size, it.name, item_id=it.id)
         elif isinstance(it, Target):
-            out.append(Actor(it.name, pv.Sphere(radius=6, center=it.pose_abs()[:3, 3]), COL["target"]))
+            out.append(Actor(it.name, pv.Sphere(radius=6, center=it.pose_abs()[:3, 3]), COL["target"],
+                             item_id=it.id))
         elif isinstance(it, Object):
             a = object_actor(it)
             if a:
@@ -186,9 +190,13 @@ def build_scene(station: Station, overlay: Overlay | None = None,
     return out
 
 
-def add_to_plotter(plotter, actors: list[Actor]) -> None:
+def add_to_plotter(plotter, actors: list[Actor]) -> dict[str, int]:
+    pickable_names = {}
     for a in actors:
-        kw = dict(color=a.color, opacity=a.opacity, name=a.name, pickable=a.kind == "surface")
+        name = f"robocode-item-{a.item_id}-{a.name}" if a.item_id is not None else a.name
+        if a.item_id is not None and a.kind == "surface":
+            pickable_names[name] = a.item_id
+        kw = dict(color=a.color, opacity=a.opacity, name=name, pickable=a.kind == "surface")
         if a.kind == "lines":
             plotter.add_mesh(a.mesh, line_width=a.line_width or 2, render_lines_as_tubes=False, **kw)
         elif a.kind == "points":
@@ -197,6 +205,7 @@ def add_to_plotter(plotter, actors: list[Actor]) -> None:
             plotter.add_mesh(a.mesh, style="wireframe", line_width=1, **kw)
         else:
             plotter.add_mesh(a.mesh, smooth_shading=True, specular=0.3, **kw)
+    return pickable_names
 
 
 def setup_plotter(plotter) -> None:

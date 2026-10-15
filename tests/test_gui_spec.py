@@ -145,6 +145,35 @@ def test_property_editor_button_updates_scene_and_supports_undo(monkeypatch):
         app.quit()
 
 
+def test_3d_pick_selects_item_in_tree_and_properties_panel(monkeypatch):
+    import pytest
+
+    pytest.importorskip("PySide6")
+    pytest.importorskip("pyvistaqt")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from robocode.gui.main_window import build_window
+
+    state = AppState()
+    state.station, _, frame, _ = build_demo_station()
+    app, window = build_window(state)
+
+    try:
+        actor = next(
+            actor for name, actor in window.viewport.plotter.renderer.actors.items()
+            if name.startswith(f"robocode-item-{frame.id}-")
+        )
+        window.viewport._on_mesh_picked(actor)
+
+        assert state.selection == [frame]
+        assert window.station_tree.currentItem() is window.station_item_widgets[frame.id]
+        assert window.edit_properties_button.isEnabled()
+        assert "Detal" in window.properties_text.text()
+    finally:
+        window.viewport.close()
+        window.close()
+        app.quit()
+
+
 def test_main_window_displays_machining_validation_report(monkeypatch):
     import pytest
 

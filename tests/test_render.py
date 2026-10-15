@@ -4,9 +4,9 @@ import pytest
 
 pv = pytest.importorskip("pyvista")
 
-from robocode.demo import demo_project
-from robocode.gui.render import (Overlay, RenderOptions, build_scene, path_bounds, render_png,
-                                 scene_bounds)
+from robocode.demo import build_demo_station, demo_project
+from robocode.gui.render import (Overlay, RenderOptions, add_to_plotter, build_scene, path_bounds,
+                                 render_png, scene_bounds)
 from robocode.gui.handlers import AppState, dispatch
 
 
@@ -18,6 +18,21 @@ def test_build_scene_contains_robot_tool_frames_and_path():
     assert "Wrzeciono:body" in names
     assert "Detal:x" in names and "Surowiec" in names
     assert "toolpath" in names and "path:ok" in names and "path:bad" not in names
+
+
+def test_scene_meshes_keep_pick_mapping_to_station_items():
+    st, robot, frame, tool = build_demo_station()
+    actors = build_scene(st)
+    plotter = pv.Plotter(off_screen=True)
+    try:
+        mapping = add_to_plotter(plotter, actors)
+        assert mapping
+        assert robot.id in mapping.values()
+        assert frame.id in mapping.values()
+        assert tool.id in mapping.values()
+        assert all("floor" not in name for name in mapping)
+    finally:
+        plotter.close()
 
 
 def test_unreachable_points_drawn_red():

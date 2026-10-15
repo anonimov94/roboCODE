@@ -81,7 +81,13 @@ def build_window(state: AppState | None = None):
         props.setText(_props_text(state.selection[0]) if state.selection else "Zaznacz element w drzewie")
         edit_properties_button.setEnabled(len(state.selection) == 1)
 
+    def on_viewport_pick(item_id: int):
+        widget = widget_map.get(item_id)
+        if widget is not None:
+            tree.setCurrentItem(widget)
+
     tree.itemSelectionChanged.connect(on_select)
+    view.set_selection_callback(on_viewport_pick)
 
     def refresh_all(first: bool = False):
         refresh_tree()
