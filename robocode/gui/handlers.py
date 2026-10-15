@@ -8,6 +8,7 @@ import json
 import numpy as np
 
 from ..core import commands as C
+from ..core import pose as P
 from ..core.io import load_station, save_station
 from ..core.scene import Frame, Item, Robot, Station, Tool
 from ..coop.calibration import calibrate_bases, calibrate_tcp, frame_from_3_points
@@ -69,11 +70,15 @@ def open_file(s: AppState, path: str | None = None) -> str:
 
 
 def undo(s: AppState) -> str:
-    return "Cofnięto" if s.undo.undo() else "Nic do cofnięcia"
+    changed = s.undo.undo()
+    _invalidate_machining_result(s)
+    return "Cofnięto" if changed else "Nic do cofnięcia"
 
 
 def redo(s: AppState) -> str:
-    return "Ponowiono" if s.undo.redo() else "Nic do ponowienia"
+    changed = s.undo.redo()
+    _invalidate_machining_result(s)
+    return "Ponowiono" if changed else "Nic do ponowienia"
 
 
 def add_frame(s: AppState) -> str:
@@ -142,6 +147,47 @@ def toggle_visible(s: AppState) -> str:
     for it in s.selection:
         s.undo.push(C.set_attr(it, "visible", not it.visible, "Pokaż/ukryj"))
     return "Przełączono widoczność"
+
+
+def _invalidate_machining_result(s: AppState) -> None:
+    if s.project is not None:
+        s.project.result = None
+        s.overlay = None
+        s.last_report = None
+
+
+def edit_item_properties(s: AppState, name: str, pose) -> str:
+    if len(s.selection) != 1:
+        return "Wybierz dokładnie jeden element do edycji"
+    item = s.selection[0]
+    if not any(candidate is item for candidate in s.station.walk()):
+        return "Wybrany element nie należy do bieżącej stacji"
+    name = name.strip()
+    if not name:
+        return "Nazwa elementu nie może być pusta"
+    if any(other is not item and other.name == name for other in s.station.walk()):
+        return f"Element o nazwie „{name}” już istnieje"
+    try:
+        new_pose = np.asarray(pose, dtype=float)
+    except (TypeError, ValueError):
+        return "Poza elementu musi być poprawną macierzą 4×4"
+    if not P.is_valid_pose(new_pose):
+        return "Poza elementu musi być poprawną macierzą 4×4"
+
+    old_name, old_pose = item.name, item.pose.copy()
+    new_pose = new_pose.copy()
+
+    def apply(name_value, pose_value):
+        item.name = name_value
+        item.pose = pose_value.copy()
+
+    s.undo.push(C.Command(
+        f"Edytuj właściwości: {item.name}",
+        lambda: apply(name, new_pose),
+        lambda: apply(old_name, old_pose),
+    ))
+    _invalidate_machining_result(s)
+    return f"Zaktualizowano {name}; wynik projektu obróbki unieważniony"
 
 
 def generate_program(s: AppState, folder: str = "programs") -> str:
@@ -422,6 +468,7 @@ HANDLERS = {
     "open_file": open_file, "undo": undo, "redo": redo, "add_frame": add_frame, "add_tool": add_tool,
     "teach_target": teach_target, "add_program": add_program, "add_movej": add_movej, "add_movel": add_movel,
     "rename_selected": rename_selected, "toggle_visible": toggle_visible, "generate_program": generate_program,
+    "edit_item_properties": edit_item_properties,
     "toggle_fast_sim": toggle_fast_sim,
     "view_iso": _view("iso"), "view_top": _view("top"), "view_front": _view("front"), "view_side": _view("side"),
     "view_fit": _view("fit"), "view_path": _view("path"), "frames_bigger": frames_bigger,

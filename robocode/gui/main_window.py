@@ -20,9 +20,12 @@ def _report_text(report) -> str:
 def build_window(state: AppState | None = None):
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QAction, QKeySequence
-    from PySide6.QtWidgets import (QApplication, QDockWidget, QFileDialog, QLabel, QMainWindow, QToolBar,
-                                   QMessageBox, QTextBrowser, QTreeWidget, QTreeWidgetItem)
+    from PySide6.QtWidgets import (QApplication, QDialog, QDialogButtonBox, QDockWidget, QFileDialog, QFormLayout,
+                                   QLabel, QLineEdit, QMainWindow, QPushButton, QDoubleSpinBox,
+                                   QToolBar, QMessageBox, QTextBrowser, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
+                                   QWidget)
 
+    from ..core import pose as P
     from .viewport import Viewport
 
     app = QApplication.instance() or QApplication(sys.argv)
@@ -40,11 +43,20 @@ def build_window(state: AppState | None = None):
     tree = QTreeWidget()
     tree.setHeaderHidden(True)
     id_map: dict[int, object] = {}
+    props = QLabel("Zaznacz element w drzewie")
+    props.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+    props.setWordWrap(True)
+    props.setMargin(8)
+    edit_properties_button = QPushButton("Edytuj właściwości…")
+    edit_properties_button.setEnabled(False)
+    widget_map: dict[int, QTreeWidgetItem] = {}
 
     def refresh_tree():
+        selected_ids = {item.id for item in state.selection}
         tree.blockSignals(True)
         tree.clear()
         id_map.clear()
+        widget_map.clear()
 
         def add(item, parent_widget):
             w = QTreeWidgetItem([f"{item.name}  ·  {KIND_PL.get(item.kind, item.kind)}"])
@@ -52,17 +64,22 @@ def build_window(state: AppState | None = None):
             if not item.visible:
                 w.setForeground(0, Qt.gray)
             id_map[item.id] = item
+            widget_map[item.id] = w
             (parent_widget.addChild(w) if parent_widget else tree.addTopLevelItem(w))
             for c in item.children:
                 add(c, w)
         add(state.station, None)
         tree.expandAll()
+        for item_id in selected_ids & widget_map.keys():
+            widget_map[item_id].setSelected(True)
         tree.blockSignals(False)
+        on_select()
 
     def on_select():
         state.selection = [id_map[w.data(0, Qt.UserRole)] for w in tree.selectedItems()
                            if w.data(0, Qt.UserRole) in id_map]
         props.setText(_props_text(state.selection[0]) if state.selection else "Zaznacz element w drzewie")
+        edit_properties_button.setEnabled(len(state.selection) == 1)
 
     tree.itemSelectionChanged.connect(on_select)
 
@@ -106,6 +123,45 @@ def build_window(state: AppState | None = None):
                    "generate_program", "generate_program_as"}:
             report_dock.raise_()
 
+    def edit_selected_properties():
+        if len(state.selection) != 1:
+            return
+        item = state.selection[0]
+        dialog = QDialog(win)
+        dialog.setWindowTitle(f"Właściwości: {item.name}")
+        form = QFormLayout(dialog)
+        name_field = QLineEdit(item.name, dialog)
+        form.addRow("Nazwa", name_field)
+        current = P.to_xyzabc(item.pose)
+        fields = []
+        for label, value, suffix, limit in (
+            ("X", current[0], " mm", 1e9), ("Y", current[1], " mm", 1e9),
+            ("Z", current[2], " mm", 1e9), ("Rx", current[3], "°", 360000),
+            ("Ry", current[4], "°", 360000), ("Rz", current[5], "°", 360000),
+        ):
+            field = QDoubleSpinBox(dialog)
+            field.setDecimals(4)
+            field.setRange(-limit, limit)
+            field.setSuffix(suffix)
+            field.setValue(float(value))
+            form.addRow(label, field)
+            fields.append(field)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dialog,
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        form.addRow(buttons)
+        if dialog.exec() != QDialog.Accepted:
+            return
+        pose = P.from_xyzabc(*(field.value() for field in fields))
+        message = dispatch(state, "edit_item_properties", name_field.text(), pose)
+        win.statusBar().showMessage(message, 8000)
+        refresh_all()
+
+    edit_properties_button.clicked.connect(edit_selected_properties)
+    tree.itemDoubleClicked.connect(lambda _item, _column: edit_selected_properties())
+
     qactions = {}
     for a in ACT.ACTIONS:
         qa = QAction(a.label_pl, win)
@@ -136,12 +192,13 @@ def build_window(state: AppState | None = None):
     dock = QDockWidget("Stacja", win)
     dock.setWidget(tree)
     win.addDockWidget(Qt.LeftDockWidgetArea, dock)
-    props = QLabel("Zaznacz element w drzewie")
-    props.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-    props.setWordWrap(True)
-    props.setMargin(8)
+    properties_widget = QWidget()
+    properties_layout = QVBoxLayout(properties_widget)
+    properties_layout.addWidget(props)
+    properties_layout.addWidget(edit_properties_button)
+    properties_layout.addStretch(1)
     pdock = QDockWidget("Właściwości", win)
-    pdock.setWidget(props)
+    pdock.setWidget(properties_widget)
     win.addDockWidget(Qt.RightDockWidgetArea, pdock)
     machining_report = QTextBrowser()
     machining_report.setObjectName("machining_validation_report")
@@ -154,6 +211,10 @@ def build_window(state: AppState | None = None):
     win.tabifyDockWidget(pdock, report_dock)
     win.machining_report_panel = machining_report
     win.machining_report_dock = report_dock
+    win.edit_properties_button = edit_properties_button
+    win.station_tree = tree
+    win.station_item_widgets = widget_map
+    win.properties_text = props
 
     win.statusBar().showMessage("Gotowy. Plik → Otwórz demo obróbki, albo Ctrl+M z własnym plikiem NC.")
     refresh_all(first=True)

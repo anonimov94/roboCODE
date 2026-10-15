@@ -3,7 +3,7 @@
 =============================================================================
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
  Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
- Kod: 0.2.0.dev0 | 177 testów | roboCODE.exe przebudowane i sprawdzone (Windows)
+ Kod: 0.2.0.dev0 | 180 testów | roboCODE.exe przebudowane i sprawdzone (Windows)
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
@@ -43,10 +43,10 @@
  |
  ---- tu konczy sie "prawdziwe MVP" - dopiero potem odmrozic GUI ----------
  |
- v0.5  USABLE GUI                (CZESCIOWO ODMROZONE) [###-------]  35%
+ v0.5  USABLE GUI                (CZESCIOWO ODMROZONE) [####------]  45%
  |  [x] okno, menu/pasek z actions.py, drzewo, widok 3D, F6 przez walidator
  |  [x] panel Projektu obrobki pokazujacy raport walidacji (odswiezany po aktualizacji i eksporcie)
- |  [ ]      edycja wlasciwosci, gizmo, zaznaczanie w 3D
+ |  [~]      edycja nazwy i pozy w panelu wlasciwosci (Undo/Redo); gizmo i selekcja 3D
  |  [ ]      podglad osiagalnosci na zywo, animacja (os czasu)
  |
  v0.6  ADVANCED MACHINING                           [###-------]  30%

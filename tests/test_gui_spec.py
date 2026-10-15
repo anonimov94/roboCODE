@@ -75,6 +75,76 @@ def test_invalid_machining_input_is_shown_as_validation_error(tmp_path):
     assert "BŁĘDY" in text
 
 
+def test_edit_item_properties_is_atomic_undoable_and_invalidates_project():
+    state = AppState()
+    state.station, robot, frame, _ = build_demo_station()
+    old_name, old_pose = frame.name, frame.pose.copy()
+    new_pose = P.transl(123, 456, 789) @ P.rotz(30)
+    state.selection = [frame]
+
+    message = dispatch(state, "edit_item_properties", "Fixture frame", new_pose)
+
+    assert "unieważniony" in message
+    assert frame.name == "Fixture frame" and np.allclose(frame.pose, new_pose)
+    assert dispatch(state, "undo") == "Cofnięto"
+    assert frame.name == old_name and np.allclose(frame.pose, old_pose)
+    assert dispatch(state, "redo") == "Ponowiono"
+    assert frame.name == "Fixture frame" and np.allclose(frame.pose, new_pose)
+
+
+def test_edit_item_properties_rejects_empty_duplicate_names_and_invalid_poses():
+    state = AppState()
+    state.station, robot, frame, _ = build_demo_station()
+    old_pose = frame.pose.copy()
+    state.selection = [frame]
+
+    assert "nie może być pusta" in dispatch(state, "edit_item_properties", "  ", old_pose)
+    assert "już istnieje" in dispatch(state, "edit_item_properties", robot.name, old_pose)
+    assert "poprawną macierzą" in dispatch(state, "edit_item_properties", "Fixture frame", np.zeros((4, 4)))
+    assert frame.name == "Detal" and np.allclose(frame.pose, old_pose)
+
+
+def test_property_editor_button_updates_scene_and_supports_undo(monkeypatch):
+    import pytest
+
+    pytest.importorskip("PySide6")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import QTimer
+    from PySide6.QtWidgets import QDialog, QDoubleSpinBox, QLineEdit
+    from robocode.gui.main_window import build_window
+
+    state = AppState()
+    state.station, _, frame, _ = build_demo_station()
+    app, window = build_window(state)
+
+    def accept_editor():
+        dialog = app.activeModalWidget()
+        assert isinstance(dialog, QDialog)
+        dialog.findChild(QLineEdit).setText("Edited frame")
+        spinboxes = dialog.findChildren(QDoubleSpinBox)
+        spinboxes[0].setValue(123.0)
+        spinboxes[1].setValue(0.0)
+        spinboxes[2].setValue(0.0)
+        spinboxes[5].setValue(30.0)
+        dialog.accept()
+
+    try:
+        frame_widget = window.station_item_widgets[frame.id]
+        window.station_tree.setCurrentItem(frame_widget)
+        assert window.edit_properties_button.isEnabled()
+        QTimer.singleShot(0, accept_editor)
+        window.edit_properties_button.click()
+
+        assert frame.name == "Edited frame"
+        assert np.allclose(frame.pose, P.from_xyzabc(123, 0, 0, 0, 0, 30))
+        assert dispatch(state, "undo") == "Cofnięto"
+        assert frame.name == "Detal"
+    finally:
+        window.viewport.close()
+        window.close()
+        app.quit()
+
+
 def test_main_window_displays_machining_validation_report(monkeypatch):
     import pytest
 

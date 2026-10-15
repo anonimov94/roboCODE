@@ -365,6 +365,7 @@ M7→v0.8, M8→v1.0, M9→v0.2 (modele robotów).
 | Mapowanie zdarzeń na I/O | post.base | test_review_fixes | ✅ gotowe |
 | Przybliżone kolizje kapsuła–prostopadłościan w próbkach trajektorii | collision.checker, program.simulator, pipeline | test_collision | 🟡 ostrzeżenia i API mapy par; bez mesh/FCL, samokolizji i geometrii OEM |
 | GUI (menu, drzewo, 3D, F6 przez walidator) | gui | test_gui_spec, test_render | 🟡 podstawowe okno i panel raportu dostępne; reszta workflow nadal ograniczona bramką T1 |
+| Edycja nazwy i pozy elementu sceny w GUI | gui.handlers, gui.main_window | test_gui_spec | ✅ panel/aktywacja dwuklikiem; jedna komenda Undo/Redo, walidacja pozy i unieważnianie wyniku CAM |
 | Panel Projektu obróbki z raportem walidacji | gui.main_window, gui.handlers | test_gui_spec (w tym Qt offscreen) | ✅ tab dokowany obok właściwości; pokazuje pełne podsumowanie, lokalizacje NC, próbki, czas i ostrzeżenia; odświeżany po obliczeniu/eksporcie |
 | Kalibracja TCP / układu / baz A↔B | coop.calibration | test_machining, test_gui_spec | 🟡 matematyka, CLI i przepływ GUI gotowe; brak interfejsu odczytu pozycji z robota |
 | CLI kalibracji z JSON (TCP, bazy, układ 3-punktowy) | robocode calibrate | test_calibration_cli | ✅ walidacja danych, RMS, atomowy zapis wyniku |
@@ -596,8 +597,12 @@ GUI bez uruchamiania Qt.
   **drzewo stacji** (lewy panel, zmiana szerokości Ctrl+kółko), **widok 3D** (środek),
   **panel właściwości** (prawy, dokowalny), **pasek stanu** (dół, podpowiedzi),
   **pasek symulacji** (dół, pojawia się przy symulacji).
-- Zaznaczenie w drzewie = zaznaczenie w 3D i odwrotnie. Dwuklik = okno właściwości
-  (wyjątek: dwuklik celu przesuwa robota, dwuklik programu uruchamia symulację).
+- Panel właściwości pokazuje nazwę i aktualną pozę względną elementu; przycisk „Edytuj właściwości…”
+  lub dwuklik zaznaczonego elementu otwiera edytor XYZ [mm] i Rx/Ry/Rz [°]. Zastosowanie wymaga
+  niepustej, unikatowej nazwy i poprawnej macierzy pozy. Całość jest jedną operacją Undo/Redo.
+  Zmiana unieważnia poprzedni wynik projektu obróbki; przed dalszym użyciem ścieżki trzeba ją przeliczyć.
+- Zaznaczenie w drzewie aktualizuje panel właściwości; dwuklik elementu drzewa otwiera edytor
+  nazwy i pozy. Zaznaczanie i edycja bezpośrednio w widoku 3D pozostają do wdrożenia.
 
 ### B2.2 Menu
 | Menu | Pozycje |
