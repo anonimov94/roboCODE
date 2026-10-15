@@ -1,0 +1,17 @@
+(przyklad: kieszen kwadratowa 40x40, 2 przejscia)
+G90 G17
+T1 M6
+S15000 M3
+G0 X0 Y0 Z10
+G1 Z-1 F500
+G1 X40
+G1 Y40
+G1 X0
+G1 Y0
+G1 Z-2
+G1 X40
+G1 Y40
+G1 X0
+G1 Y0
+G0 Z10
+M5

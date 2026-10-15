@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "robocode"
+version = "0.1.0"
+description = "roboCODE - open-source robot offline programming, robot machining and dual-arm cooperative milling"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.5", "pyvista>=0.42", "pyvistaqt>=0.11"]
+collision = ["python-fcl", "trimesh"]
+dev = ["pytest>=7", "ruff"]
+
+[project.scripts]
+robocode = "robocode.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["robocode*"]
