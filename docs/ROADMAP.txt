@@ -71,7 +71,7 @@
    [x] uczciwa nazwa metryki IK_TRACKING_RESIDUAL
    [ ] scalic PR z poprawkami do main; zamknac PR #1 (tresc jest juz w main)
    [ ] zasada: dalsze zmiany przez PR, nie bezposrednio na main
-   [ ] odblokowac GitHub Actions (blokada rozliczen konta)          [TY]
+   [x] CI w chmurze usuniete - GitHub sluzy tylko jako kopia kodu (bez oplat)
    [ ] (opcja) przepisac historie git, aby usunac 115 MB exe    [decyzja]
 =============================================================================
  KOLEJKA DO KONCA PROJEKTU (od gory):

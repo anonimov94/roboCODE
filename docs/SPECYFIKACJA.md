@@ -415,7 +415,7 @@ sterowanie robotem:
   post → manifest), bezpieczeństwa/regresji (błędne dane, blokada eksportu, nieaktualne pliki, fuzzing).
 - Każdy znaleziony błąd = test reprodukujący przed poprawką.
 - Testy właściwości bez dodatkowych zależności (losowe dane z ustalonym ziarnem).
-- CI (`.github/workflows/ci.yml`): Python 3.10 i 3.12, `ruff --select F`, `pytest`, przebieg demo KRL i RAPID.
+- CI w chmurze wyłączone (decyzja właściciela: GitHub tylko jako kopia kodu, bez płatnych usług). Testy uruchamiane lokalnie: `pytest` lub konfiguracja „roboCODE testy” w PyCharmie.
 - Planowane: `mypy`, testy mutacyjne, skan zależności, golden files.
 
 ### 13.1 Kod szkicowany przez zewnętrzne boty
