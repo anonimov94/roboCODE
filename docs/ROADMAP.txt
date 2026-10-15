@@ -3,7 +3,7 @@
 =============================================================================
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
  Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
- Kod: 0.2.0.dev0 | 186 testów | roboCODE.exe (23 341 462 B) przebudowane i sprawdzone (Windows)
+ Kod: 0.2.0.dev0 | 187 testów | roboCODE.exe (23 343 373 B) przebudowane i sprawdzone (Windows)
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
@@ -14,7 +14,7 @@
  v0.2  CORE - kinematyka i stacja                   [#########-]  90%
  |  [x] model DH 6R: FK, Jakobian, manipulowalnosc
  |  [x] IK numeryczne z jawnym statusem (ok / brak zbieznosci / limity)
- |  [~] lista konfiguracji (nadgarstek, obroty +-360) - gubi Rear/Down
+ |  [x] lista konfiguracji: etykiety Front/Rear, Up/Down, Flip/NoFlip dla galezi analitycznych 6R
  |  [x] biblioteka robotow .robot.json (pola source + license)
  |  [x] IK analityczne 6R (nadgarstek sferyczny) + test 8 konfiguracji
  |  [x] model UR5e z ROS-Industrial URDF -> .robot.json (nominalny)

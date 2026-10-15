@@ -358,10 +358,10 @@ sterowanie robotem:
 |---|---|---|---|
 | Pozy, Euler (z gimbal lock), kwaterniony, Kabsch | core.pose | test_core, test_kinematics_props | ✅ gotowe |
 | Scena, undo/redo, `.rcs.json` | core | test_core | ✅ gotowe |
-| FK, IK ze statusem, konfiguracje (częściowo) | kinematics | test_kinematics_props | 🟡 eksperymentalne (model syntetyczny) |
+| FK, IK ze statusem, konfiguracje (etykiety F/R, U/D, F/N dla analitycznych gałęzi 6R) | kinematics | test_kinematics_props | 🟡 etykiety gałęzi analitycznych pokryte testem; wyszukiwanie numeryczne pozostaje niekompletne |
 | Parser NC: G0–G4, G17–G19, G20/21, G90/91, R/IJK, A/B/IJK, zdarzenia, tryb ścisły | machining.nc_parser | test_nc_parser (31 testów, w tym fuzzing) | ✅ gotowe dla opisanego dialektu |
 | Import CSV krzywych | machining.toolpath | test_machining | ✅ |
-| Solver obróbki + lista/wybór konfiguracji startowej | machining.solver | test_machining, test_validator_pipeline, test_review_fixes | 🟡 działa na celi demo; numeryczne IK nie gwarantuje kompletności listy |
+| Solver obróbki + lista/wybór konfiguracji startowej z etykietą konfiguracji | machining.solver | test_machining, test_validator_pipeline, test_review_fixes | 🟡 etykiety rozróżniają gałęzie analityczne 6R; numeryczne IK nie gwarantuje kompletności listy |
 | Symulacja pełnej trajektorii + estymacja czasu cyklu z przyspieszeniami | program.simulator | test_validator_pipeline, test_review_fixes | 🟡 założone przyspieszenia, brak profilu przyspieszeń orientacji/blendingu i weryfikacji na sterowniku |
 | Walidator centralny + odczyt zwrotny posta | program.validator | test_validator_pipeline | ✅ gotowe (zakres §7) |
 | Manifest, zapis atomowy, blokada eksportu i dzielenie programu z kontrolą limitu linii | pipeline, core.fileio, post.base | test_validator_pipeline, test_post_golden | ✅ gotowe; uruchomienie części wymaga nadzoru operatora |

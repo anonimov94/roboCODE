@@ -60,6 +60,8 @@ def test_start_ik_configurations_can_be_listed_and_selected():
 
     assert len(configurations) > 1
     assert all(robot.model.within_limits(config.joints) for config in configurations)
+    assert all(configuration.label in {"FUF", "FUN", "RUF", "RUN", "FDF", "FDN", "RDF", "RDN"}
+               for configuration in configurations)
     selected = solve(robot, robot.frame_rel_base(frame), tool.tcp(), path,
                      MachiningSettings(start_configuration_index=2))
     assert selected.ok, selected.message

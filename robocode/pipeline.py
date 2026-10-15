@@ -275,6 +275,7 @@ def run_job(nc_text: str, post: str = "kuka", out_dir: str | Path = "out", name:
             "index": settings.start_configuration_index,
             "orientation_z_deg": selected.orientation_z_deg,
             "joints_deg": _jsonable(selected.joints),
+            "label": selected.label,
         }
     return export_program(res.program, post, out_dir, limits, tp.warnings, manifest, rep, event_map, tool_load,
                           max_lines_per_file, collision_checker)

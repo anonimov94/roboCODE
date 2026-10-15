@@ -34,6 +34,7 @@ pip install -e .[dev]          # z GUI: pip install -e .[dev,gui]
 pytest
 python -m robocode.cli demo                                         # demo → out/Machining.src
 python -m robocode.cli machine examples/square.nc --post abb --out out/
+python -m robocode.cli machine examples/square.nc --list-start-configurations  # konfiguracje IK (F/R, U/D, F/N)
 python -m robocode.cli machine plik.nc --events examples/events_kuka.json   # wrzeciono jako $OUT/$ANOUT
 python -m robocode.cli report out/Machining.manifest.json          # raport HTML
 python -m robocode.cli samples examples/samples                    # przykładowe pliki NC

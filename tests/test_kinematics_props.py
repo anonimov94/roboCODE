@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 
 from robocode.core import pose as P
+from robocode.kinematics.configs import config_flags
 from robocode.kinematics.robot_model import example_6r
 from robocode.robots import available, load_robot
 
@@ -57,6 +58,22 @@ def test_analytic_ik_finds_eight_spherical_wrist_configurations():
         assert P.pose_distance(model.fk(solution), target)[1] < 1e-5
         for other in solutions[i + 1:]:
             assert not np.allclose(solution, other, atol=0.5)
+
+
+def test_analytic_ik_configuration_flags_preserve_all_eight_branches():
+    expected = {shoulder + elbow + wrist
+                for shoulder in ("F", "R")
+                for elbow in ("U", "D")
+                for wrist in ("F", "N")}
+    for signs, offsets in (([1] * 6, (0.0, 0.0)), ([-1, 1, -1, 1, -1, 1], (17.0, -23.0))):
+        model = example_6r()
+        model.limits_deg = [(-360.0, 360.0)] * 6
+        model.joint_sign = signs
+        model.dh[2].theta_offset, model.dh[4].theta_offset = offsets
+        target = model.fk([20, 10, 30, 15, 50, -20])
+        labels = {config_flags(model, q)["label"] for q in model.ik_analytic(target, include_turns=False)}
+
+        assert labels == expected
 
 
 def test_analytic_ik_roundtrips_random_reachable_poses():

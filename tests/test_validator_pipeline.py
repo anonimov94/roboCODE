@@ -147,6 +147,9 @@ def test_pipeline_reports_invalid_start_configuration_and_exports_selection(tmp_
     manifest = json.loads(good.manifest_path.read_text(encoding="utf-8"))
     assert manifest["start_configuration"]["index"] == 1
     assert len(manifest["start_configuration"]["joints_deg"]) == 6
+    assert manifest["start_configuration"]["label"] in {
+        "FUF", "FUN", "RUF", "RUN", "FDF", "FDN", "RDF", "RDN",
+    }
 
 
 def test_pipeline_warns_about_leftover_split_parts(tmp_path):

@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..core import pose as P
+from ..kinematics.configs import config_flags
 from ..program.instructions import Call, MoveJ, MoveL, Pause, Program, SetRounding, SetSpeed
 from .toolpath import Toolpath
 
@@ -36,6 +37,7 @@ class StartConfiguration:
     orientation_z_deg: float
     joints: np.ndarray
     cost: float
+    label: str
 
 
 @dataclass
@@ -100,7 +102,8 @@ def enumerate_start_configurations(robot, frame_rel_base: np.ndarray, tool_tcp: 
                    for old in candidates):
                 continue
             cost = _cost(model, q, seed) + abs(z) * 0.05
-            candidates.append(StartConfiguration(float(z), q.copy(), cost))
+            label = config_flags(model, q)["label"]
+            candidates.append(StartConfiguration(float(z), q.copy(), cost, label))
     return sorted(candidates, key=lambda item: item.cost)
 
 

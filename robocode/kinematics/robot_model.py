@@ -279,7 +279,8 @@ class RobotModel:
     def ik_all(self, T_target, seeds=None, include_turns: bool = True) -> list[np.ndarray]:
         """Return all IK solutions in limits, preferring analytic branches when available.
 
-        For other DH layouts, retain the numeric seed search and wrist-flip fallback.
+        For other DH layouts, retain the numeric seed search and wrist-flip fallback;
+        this fallback does not guarantee a complete set of configuration branches.
         """
         if self.supports_analytic_ik():
             return self.ik_analytic(T_target, include_turns=include_turns)

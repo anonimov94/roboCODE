@@ -299,7 +299,8 @@ def test_cli_lists_and_selects_start_configuration(tmp_path, capsys):
     nc.write_text(DEMO_NC, encoding="utf-8")
     status = cli.main(["machine", str(nc), "--list-start-configurations"])
     listing = capsys.readouterr().out
-    assert status == 0 and "1: obrót Z=" in listing
+    valid_labels = {"FUF", "FUN", "RUF", "RUN", "FDF", "FDN", "RDF", "RDN"}
+    assert status == 0 and any(f"1: {label}, obrót Z=" in listing for label in valid_labels)
 
     out = tmp_path / "selected"
     status = cli.main(["machine", str(nc), "--start-config", "1", "--out", str(out)])

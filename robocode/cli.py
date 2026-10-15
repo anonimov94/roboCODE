@@ -60,7 +60,7 @@ def main(argv=None):
     m.add_argument("--max-lines-per-file", type=int, default=5000,
                    help="maksymalna liczba linii programu sterownika w pliku (domyślnie: 5000)")
     m.add_argument("--list-start-configurations", action="store_true",
-                   help="wypisz dostępne konfiguracje IK dla pierwszego punktu i zakończ")
+                   help="wypisz konfiguracje IK (etykiety F/R, U/D, F/N) dla pierwszego punktu i zakończ")
     m.add_argument("--start-config", type=int, default=None,
                    help="wybór konfiguracji początkowej 1-based z --list-start-configurations")
     m.add_argument("--no-strict", action="store_true",
@@ -94,7 +94,7 @@ def main(argv=None):
                 print(f"✗ Nie można wyznaczyć konfiguracji początkowych: {exc}")
                 return 2
             for index, config in enumerate(configs, start=1):
-                print(f"{index}: obrót Z={config.orientation_z_deg:.1f}°, osie="
+                print(f"{index}: {config.label}, obrót Z={config.orientation_z_deg:.1f}°, osie="
                       f"{[round(float(value), 3) for value in config.joints]}, koszt={config.cost:.3f}")
             if not configs:
                 print("✗ Brak osiągalnych konfiguracji początkowych")
