@@ -41,6 +41,8 @@ class RobotModel:
     vmax_deg_s: list[float] = field(default_factory=lambda: [150] * 6)
     source: str = "example"
     license: str = "CC0"
+    # optional link to a ROS 2 description: {"joint_names": [...], "description_package": ..., "base_link": ...}
+    ros: dict | None = None
 
     @property
     def n(self) -> int:
@@ -319,11 +321,14 @@ class RobotModel:
 
     # ---------------- I/O ----------------
     def to_json(self) -> str:
-        return json.dumps({
+        data = {
             "name": self.name, "source": self.source, "license": self.license,
             "dh": [vars(d) for d in self.dh], "limits_deg": self.limits_deg,
             "joint_sign": self.joint_sign, "vmax_deg_s": self.vmax_deg_s,
-        }, indent=2)
+        }
+        if self.ros is not None:
+            data["ros"] = self.ros
+        return json.dumps(data, indent=2)
 
     @classmethod
     def from_json(cls, s: str) -> "RobotModel":
@@ -332,7 +337,7 @@ class RobotModel:
                    limits_deg=[tuple(x) for x in d["limits_deg"]],
                    joint_sign=d.get("joint_sign", [1] * 6),
                    vmax_deg_s=d.get("vmax_deg_s", [150] * 6),
-                   source=d.get("source", ""), license=d.get("license", ""))
+                   source=d.get("source", ""), license=d.get("license", ""), ros=d.get("ros"))
 
 
 def example_6r(name: str = "Generic6R-900") -> RobotModel:

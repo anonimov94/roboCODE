@@ -61,6 +61,7 @@ systemy embedded/mikrokontrolery (uwaga z notatki Gemini o ESP32/RPi nie dotyczy
 | D6 | Wyróżnik projektu (dual-arm) vs rada „zacznij od jednego robota”. | Kod `coop/` zostaje jako **eksperymentalny**, bez rozwoju do v0.8. Przed nim osie zewnętrzne (v0.7). | Grok: osie zewnętrzne praktyczniejsze; ChatGPT: najpierw jeden robot. |
 | D7 | Nieobsługiwane kody G-code: README milczy. ChatGPT: nie pomijać po cichu. | **Tryb ścisły domyślnie**: błąd z numerem linii. `--no-strict` zamienia je w ostrzeżenia (niezalecane). | Zasada 1. |
 | D8 | Gemini: HAL, timeouty, fail-safe. | Przyjęte w warstwie `drivers/` (v1.0, opcjonalnie). Domyślnie offline, patrz §12. | Brak komunikacji z robotem w PoC. |
+| D9 | Właściciel (15.10.2026): roboCODE ma działać jak ROS 2 + Gazebo i opierać się na [ClaBirk/ROS2_Gazebo_Moveit_Simulation](https://github.com/ClaBirk/ROS2_Gazebo_Moveit_Simulation). Zasada 6 („zero cudzego kodu”). | **ROS 2 Jazzy + Gazebo Harmonic + MoveIt 2 = warstwa symulacji fizycznej i wykonania** w `ros2/` (całość projektu ClaBirk, przeportowana z Humble/Gazebo Classic). **Rdzeń roboCODE zostaje samodzielny** (Windows, numpy) i nie importuje ROS: łączy je plik `<nazwa>.ros_trajectory.json`, zapisywany wyłącznie przez `export_program()` po udanej walidacji (§6.8). Kod ClaBirk = świadomy wyjątek od zasady 6, trzymany w `ros2/` na licencji GPL-3.0. | Decyzja właściciela. Gazebo nie działa natywnie na Windows (WSL2/Linux), a walidacja, posty i manifest roboCODE nie mogą zależeć od ROS. Licencja całego repozytorium: decyzja właściciela (otwarte). |
 
 ---
 
@@ -102,6 +103,7 @@ robocode/
   coop/                [eksperymentalne] dual-arm, kalibracje baz/TCP/układu
   tools/               report_html (raport HTML z manifestu), sample_nc (przykładowe programy NC)
   collision/ drivers/  [szkielety] v0.7 / v1.0
+  ros/                 most do ROS 2 (D9): trajectory (eksport trajektorii osi), cell (stacja zgodna z celą KR10)
   gui/                 [częściowo odblokowane, D1] actions (deklaratywne), handlers, main_window, render, viewport
   cli.py               robocode demo | machine | report | samples | render | gui
 ```
@@ -219,6 +221,18 @@ Program ──post.generate──► tekst KRL/RAPID w pamięci ──verify_pos
   konkretnego producenta. Wynik wymaga sprawdzenia w symulatorze producenta.
 
 ---
+
+### 6.8 Most ROS 2 / Gazebo (D9)
+- `export_program(..., ros_trajectory=True)` (CLI: `machine ... --ros`) zapisuje obok pliku sterownika
+  `<nazwa>.ros_trajectory.json` (format `robocode-ros-trajectory/1`): nazwy osi ROS, punkty osi [rad] z czasem [s]
+  (estymata symulatora §6.6, ściśle rosnąca), ścieżka TCP w `base_link` [m], hash modelu. Plik jest częścią
+  tego samego eksportu „wszystko albo nic” i ma sumę SHA-256 w manifeście (`ros_trajectory: true`).
+- Model robota musi mieć w `.robot.json` blok `ros` (`joint_names`, `description_package`, `base_link`,
+  `controller_action`); brak bloku = błąd `ROS_TRAJECTORY`, brak jakiegokolwiek pliku.
+- Wartości osi roboCODE = wartości przegubów URDF (`tests/test_kr10_model.py`); kołnierz roboCODE = `tool0`
+  (Z na zewnątrz kołnierza), TCP wrzeciona = ramka `tcp` celi.
+- Odtwarzanie: `ros2/robocode_ros` `trajectory_player` (FollowJointTrajectory, powolny dojazd do punktu startowego,
+  `time_scale`). Tylko symulacja; nie jest dopuszczony do sterowania robotem (§12).
 
 ## 7. Walidacja przed eksportem (`program.validator`)
 
@@ -390,7 +404,10 @@ sterowanie robotem:
 | Kalibracja TCP / układu / baz A↔B | coop.calibration | test_machining, test_gui_spec | 🟡 matematyka, CLI i przepływ GUI gotowe; brak interfejsu odczytu pozycji z robota |
 | CLI kalibracji z JSON (TCP, bazy, układ 3-punktowy) | robocode calibrate | test_calibration_cli | ✅ walidacja danych, RMS, atomowy zapis wyniku |
 | Dual-arm | coop.dual_arm | — | 🧪 eksperymentalne |
-| Kolizje, sterowniki online, URDF | collision, drivers | — | ⏳ planowane |
+| Model KUKA KR 10 R1100 sixx zgodny z URDF celi ROS 2 | robots, ros.cell | test_kr10_model, test_ros_trajectory | ✅ FK = łańcuch URDF; IK analityczne; wymiary nominalne |
+| Eksport trajektorii do ROS 2 (`--ros`) i parser po stronie ROS | ros.trajectory, pipeline, ros2/robocode_ros | test_ros_trajectory, ros2/robocode_ros/test | 🟡 format i zgodność URDF sprawdzone; pakiety ROS 2 nie budowane/uruchamiane w Jazzy |
+| Cela ROS 2: Gazebo Harmonic, ros2_control, MoveIt 2 (OMPL + Pilz), węzeł KRL | ros2/ | xacro (oba tryby), kontrola nazw SRDF, parser KRL na programach przykładowych | 🟡 nieuruchomione w ROS 2 – pierwszy `colcon build` u właściciela |
+| Kolizje, sterowniki online | collision, drivers | — | ⏳ planowane |
 
 ---
 
@@ -486,6 +503,8 @@ python -m robocode.cli machine examples/square.nc --post abb --out out/
 python -m robocode.cli machine plik.nc --station cela.rcs.json --zrange 180 --zstep 20 --approach 50
 python -m robocode.cli report out/Machining.manifest.json        # raport HTML obok manifestu
 python -m robocode.cli samples examples/samples                  # 7 przykładowych programów NC
+python -m robocode.cli machine examples/square.nc --station examples/kr10_cell.rcs.json --ros --out out
+                                   # + out/Machining.ros_trajectory.json dla ROS 2 / Gazebo (ros2/README.md)
 ```
 Windows: `build_exe.bat` buduje `roboCODE.exe` (launcher z menu, `robocode/launcher.py`, PyInstaller
 `--onefile`, bez Qt); `roboCODE.bat` uruchamia launcher bez budowania. Wyniki w `out/` obok exe.

@@ -1,0 +1,29 @@
+{
+  "name": "KUKA KR 10 R1100 sixx (nominal, ROS 2 cell model)",
+  "source": "https://github.com/ClaBirk/ROS2_Gazebo_Moveit_Simulation/tree/9a9ca52 (ros_sim/urdf/kr10_full_moveit_gazebo.xacro: joint origins, axes, limits, velocities); copied into roboCODE as ros2/robocode_kr10_description. Joint values equal the URDF joint values (joint_1..joint_6). Flange frame = URDF link_6 rotated +90 deg about Y (tool0 convention, Z out of the flange).",
+  "license": "GPL-3.0-only (ClaBirk/ROS2_Gazebo_Moveit_Simulation); kinematic dimensions are nominal values of the KUKA KR 10 R1100 sixx and require calibration of the real robot",
+  "dh": [
+    {"a": 25.0, "alpha": -90.0, "d": 400.0, "theta_offset": 0.0},
+    {"a": 560.0, "alpha": 0.0, "d": 0.0, "theta_offset": 0.0},
+    {"a": 35.0, "alpha": -90.0, "d": 0.0, "theta_offset": -90.0},
+    {"a": 0.0, "alpha": -90.0, "d": 515.0, "theta_offset": 0.0},
+    {"a": 0.0, "alpha": 90.0, "d": 0.0, "theta_offset": 0.0},
+    {"a": 0.0, "alpha": 0.0, "d": 80.0, "theta_offset": 180.0}
+  ],
+  "limits_deg": [
+    [-170.0, 170.0],
+    [-190.0, 45.0],
+    [-120.0, 156.0],
+    [-185.0, 185.0],
+    [-120.0, 120.0],
+    [-350.0, 350.0]
+  ],
+  "joint_sign": [-1, 1, 1, -1, -1, -1],
+  "vmax_deg_s": [300.0, 225.0, 225.0, 381.0, 311.0, 492.0],
+  "ros": {
+    "description_package": "robocode_kr10_description",
+    "base_link": "base_link",
+    "joint_names": ["joint_1", "joint_2", "joint_3", "joint_4", "joint_5", "joint_6"],
+    "controller_action": "/kr10_arm_controller/follow_joint_trajectory"
+  }
+}
