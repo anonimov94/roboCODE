@@ -23,6 +23,6 @@ def test_handlers_flow(tmp_path):
     dispatch(s, "add_movej")
     dispatch(s, "add_movel")
     msg = dispatch(s, "generate_program", str(tmp_path))
-    assert "Wygenerowano" in msg
+    assert "Zapisano" in msg and (tmp_path / "Prog1.manifest.json").exists()
     assert "niezaimplementowana" in dispatch(s, None)
     assert "Zapisano" in dispatch(s, "save_station_as", str(tmp_path / "x.rcs.json"))

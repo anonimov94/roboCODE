@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "robocode"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "roboCODE - open-source robot offline programming, robot machining and dual-arm cooperative milling"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24"]
@@ -19,3 +19,13 @@ robocode = "robocode.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["robocode*"]
+
+[tool.setuptools.package-data]
+robocode = ["robots/*.robot.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

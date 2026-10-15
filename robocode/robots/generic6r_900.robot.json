@@ -1,0 +1,85 @@
+{
+  "name": "Generic6R-900",
+  "source": "roboCODE example (synthetic)",
+  "license": "CC0",
+  "dh": [
+    {
+      "a": 25,
+      "alpha": -90,
+      "d": 400,
+      "theta_offset": 0.0
+    },
+    {
+      "a": 455,
+      "alpha": 0,
+      "d": 0,
+      "theta_offset": -90
+    },
+    {
+      "a": 35,
+      "alpha": -90,
+      "d": 0,
+      "theta_offset": 0.0
+    },
+    {
+      "a": 0,
+      "alpha": 90,
+      "d": 420,
+      "theta_offset": 0.0
+    },
+    {
+      "a": 0,
+      "alpha": -90,
+      "d": 0,
+      "theta_offset": 0.0
+    },
+    {
+      "a": 0,
+      "alpha": 0,
+      "d": 80,
+      "theta_offset": 0.0
+    }
+  ],
+  "limits_deg": [
+    [
+      -170,
+      170
+    ],
+    [
+      -100,
+      135
+    ],
+    [
+      -150,
+      150
+    ],
+    [
+      -185,
+      185
+    ],
+    [
+      -125,
+      125
+    ],
+    [
+      -350,
+      350
+    ]
+  ],
+  "joint_sign": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "vmax_deg_s": [
+    150,
+    150,
+    150,
+    150,
+    150,
+    150
+  ]
+}

@@ -20,6 +20,17 @@ class DH:
 
 
 @dataclass
+class IKResult:
+    q: np.ndarray | None
+    status: str  # "ok" | "no_convergence" | "joint_limits" | "invalid_input"
+    message: str
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "ok"
+
+
+@dataclass
 class RobotModel:
     name: str
     dh: list[DH]
@@ -98,16 +109,69 @@ class RobotModel:
             q = q + step
         return None
 
-    def ik_all(self, T_target, seeds=None) -> list[np.ndarray]:
-        """Wiele rozwiązań z różnych ziaren (przybliżenie listy konfiguracji)."""
+    def ik_solve(self, T_target: np.ndarray, q_seed, **kw) -> "IKResult":
+        """IK with an explicit status instead of a bare None (docs §6.3)."""
+        if not (np.asarray(T_target).shape == (4, 4) and np.all(np.isfinite(T_target))):
+            return IKResult(None, "invalid_input", "Poza celu zawiera NaN/inf")
+        q = self.ik_unbounded(T_target, q_seed, **kw)
+        if q is None:
+            reach = float(np.linalg.norm(T_target[:3, 3]))
+            return IKResult(None, "no_convergence",
+                            f"Brak rozwiązania IK (odległość od bazy {reach:.0f} mm) – cel poza zasięgiem "
+                            "lub w osobliwości")
+        if not self.within_limits(q):
+            bad = [j + 1 for j, (v, (lo, hi)) in enumerate(zip(q, self.limits_deg)) if not lo <= v <= hi]
+            return IKResult(q, "joint_limits", f"Rozwiązanie istnieje, ale osie {bad} poza limitami")
+        return IKResult(q, "ok", "")
+
+    def ik_unbounded(self, T_target, q_seed, tol_mm=1e-3, tol_deg=1e-3, iters=200):
+        """Numeric IK ignoring joint limits (for diagnostics)."""
+        lim = self.limits_deg
+        self.limits_deg = [(-1e9, 1e9)] * self.n
+        try:
+            return self.ik(T_target, q_seed, tol_mm, tol_deg, iters)
+        finally:
+            self.limits_deg = lim
+
+    def ik_all(self, T_target, seeds=None, include_turns: bool = True) -> list[np.ndarray]:
+        """All IK solutions found (approximation of the configuration list, docs §6.3).
+
+        1. numeric IK from a grid of seeds (shoulder/elbow/wrist combinations),
+        2. for every solution also try the wrist flip (q4±180, -q5, q6±180) – exact for spherical wrists,
+        3. optionally add ±360° variants of joints whose range exceeds 360° (axis-6 "winding").
+        Solutions are unique (0.5° tolerance) and within joint limits.
+        """
         if seeds is None:
-            seeds = [[a1, a2, a3, 0, a5, 0]
-                     for a1 in (0, 180, -180) for a2 in (-60, 0) for a3 in (60, -60, 120) for a5 in (45, -45)]
+            seeds = [[a1, a2, a3, a4, a5, 0]
+                     for a1 in (0, 90, -90, 180, -180) for a2 in (-60, 0, 60) for a3 in (60, -60, 120)
+                     for a4 in (0, 90, -90) for a5 in (45, -45)]
         sols: list[np.ndarray] = []
-        for s in seeds:
-            q = self.ik(T_target, s, iters=150)
-            if q is not None and not any(np.allclose(q, x, atol=0.5) for x in sols):
-                sols.append(q)
+
+        def add(q):
+            if q is not None and self.within_limits(q) and not any(np.allclose(q, x, atol=0.5) for x in sols):
+                sols.append(np.asarray(q, float))
+                return True
+            return False
+
+        for sd in seeds:
+            add(self.ik(T_target, sd, iters=150))
+        for q in list(sols):
+            for s4 in (180.0, -180.0):
+                for s6 in (180.0, -180.0):
+                    flip = q.copy()
+                    flip[3] += s4
+                    flip[4] = -flip[4]
+                    flip[5] += s6
+                    if self.within_limits(flip):
+                        add(self.ik(T_target, flip, iters=50))
+        if include_turns:
+            for q in list(sols):
+                for j, (lo, hi) in enumerate(self.limits_deg):
+                    if hi - lo > 360:
+                        for turn in (360.0, -360.0):
+                            v = q.copy()
+                            v[j] += turn
+                            add(v)
         return sols
 
     # ---------------- I/O ----------------

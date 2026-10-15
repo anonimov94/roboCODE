@@ -5,17 +5,39 @@ from pathlib import Path
 
 import numpy as np
 
+from ..core.fileio import atomic_write_text
+
 from ..program.instructions import (Call, Message, MoveC, MoveJ, MoveL, Pause, Program, SetFrame,
                                     SetIO, SetRounding, SetSpeed, SetTool, WaitIO)
 
 
 class PostProcessor:
     ext = ".txt"
+    name = "generic"
+    version = "0.2"
     MAX_LINES_X_PROG = 5000
 
-    def __init__(self) -> None:
+    def __init__(self, event_map: dict[str, str] | None = None) -> None:
         self.lines: list[str] = []
         self.prog_name = "Prog"
+        self.robot = None
+        # event name -> controller code template, e.g. {"SpindleOn": "$OUT[1] = TRUE", "Spindle": "S_SET({0})"}
+        # {0}, {1}... are the event arguments. Unmapped events are emitted as subprogram calls (they must
+        # exist on the controller – the validator warns about them). Review: Grok.
+        self.event_map: dict[str, str] = dict(event_map or {})
+
+    @staticmethod
+    def split_call(code: str) -> tuple[str, list[str]]:
+        """'Spindle(12000)' -> ('Spindle', ['12000'])."""
+        if "(" in code and code.endswith(")"):
+            name, args = code[:-1].split("(", 1)
+            return name.strip(), [a.strip() for a in args.split(",") if a.strip()]
+        return code.strip(), []
+
+    def mapped_event(self, code: str) -> str | None:
+        name, args = self.split_call(code)
+        tpl = self.event_map.get(name)
+        return tpl.format(*args) if tpl is not None else None
 
     # --- do nadpisania ---
     def ProgStart(self, name: str): self.addline(f"PROGRAM {name}")
@@ -41,6 +63,7 @@ class PostProcessor:
     def generate(self, prog: Program) -> str:
         self.lines = []
         self.prog_name = prog.name
+        self.robot = prog.robot
         self.ProgStart(prog.name)
         for ins in prog.instructions:
             if isinstance(ins, SetFrame):
@@ -66,7 +89,11 @@ class PostProcessor:
             elif isinstance(ins, Message):
                 self.RunMessage(ins.text)
             elif isinstance(ins, Call):
-                self.RunCode(ins.name, ins.mode == "call")
+                mapped = self.mapped_event(ins.name) if ins.mode == "call" else None
+                if mapped is not None:
+                    self.RunCode(mapped, is_function_call=False)
+                else:
+                    self.RunCode(ins.name, ins.mode == "call")
             elif isinstance(ins, SetIO):
                 self.setDO(ins.io, ins.value)
             elif isinstance(ins, WaitIO):
@@ -78,14 +105,14 @@ class PostProcessor:
         folder = Path(folder)
         folder.mkdir(parents=True, exist_ok=True)
         out = folder / f"{prog.name}{self.ext}"
-        out.write_text(self.generate(prog), encoding="utf-8")
+        atomic_write_text(out, self.generate(prog))
         return [out]
 
 
-def get_post(name: str) -> PostProcessor:
+def get_post(name: str, event_map: dict[str, str] | None = None) -> PostProcessor:
     from .abb_rapid import AbbRapid
     from .kuka_krl import KukaKrl
     posts = {"kuka": KukaKrl, "abb": AbbRapid, "generic": PostProcessor}
     if name not in posts:
         raise ValueError(f"Nieznany post-procesor '{name}'. Dostępne: {', '.join(posts)}")
-    return posts[name]()
+    return posts[name](event_map=event_map)

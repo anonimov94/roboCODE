@@ -23,6 +23,7 @@ class AppState:
     view_request: str | None = None   # GUI ustawia kamerę po akcji ("iso", "top", "path"…)
     trace_on: bool = True
     last_sim: object = None
+    last_report: object = None  # ValidationReport z ostatniego eksportu (F6)
 
     def __post_init__(self):
         from .render import RenderOptions
@@ -136,12 +137,19 @@ def toggle_visible(s: AppState) -> str:
 
 
 def generate_program(s: AppState, folder: str = "programs") -> str:
-    from ..post.base import get_post
-    p = _current_program(s)
+    """F6: always through validation + read-back check; never writes an unvalidated file."""
+    from ..pipeline import export_program
+    p = s.project.result.program if s.project and s.project.result and s.project.result.ok \
+        else _current_program(s)
     if not p:
         return "Brak programu"
-    files = get_post(p.robot.post_processor).save(p, folder)
-    return f"Wygenerowano {files[0]}"
+    job = export_program(p, p.robot.post_processor, folder,
+                         parser_warnings=s.project.toolpath.warnings if s.project else None)
+    s.last_report = job.report
+    if not job.ok:
+        first = job.report.errors[0].text() if job.report.errors else ""
+        return f"{job.message}: {first}"
+    return f"{job.message} – {job.outputs[0]}"
 
 
 def toggle_fast_sim(s: AppState) -> str:
@@ -219,7 +227,11 @@ def new_machining_project(s: AppState, nc_path: str | None = None) -> str:
     tool = r.active_tool or (r.tools()[0] if r.tools() else None)
     if fr is None or tool is None:
         return "Projekt obróbki wymaga układu detalu i narzędzia na robocie"
-    tp = parse_gcode(Path(nc_path).read_text(encoding="utf-8", errors="replace"))
+    from ..errors import RoboCodeError
+    try:
+        tp = parse_gcode(Path(nc_path).read_text(encoding="utf-8", errors="replace"))
+    except RoboCodeError as e:
+        return f"✗ Plik NC: {e}"
     if len(tp) == 0:
         return "Plik NC nie zawiera ruchów"
     s.project = MachiningProject(r, fr, tool, tp, MachiningSettings())

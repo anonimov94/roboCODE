@@ -1,0 +1,7 @@
+{
+  "SpindleOn": "$OUT[1] = TRUE",
+  "SpindleOnCCW": "$OUT[2] = TRUE",
+  "SpindleOff": "$OUT[1] = FALSE",
+  "Spindle": "$ANOUT[1] = {0}/24000.0",
+  "SetTool": "; narzedzie T{0} - wymiana recznie / w podprogramie celi"
+}

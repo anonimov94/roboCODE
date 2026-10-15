@@ -159,3 +159,28 @@ def fit_rigid(src: np.ndarray, dst: np.ndarray) -> np.ndarray:
     T[:3, :3] = R
     T[:3, 3] = cd - R @ cs
     return T
+
+
+def from_quaternion(x, y, z, q1, q2, q3, q4) -> np.ndarray:
+    """Pose from position + quaternion [w, x, y, z] (ABB convention)."""
+    q = np.array([q1, q2, q3, q4], float)
+    nq = np.linalg.norm(q)
+    if nq < 1e-12:
+        raise ValueError("Zerowy kwaternion")
+    w, a, b, c = q / nq
+    T = np.eye(4)
+    T[:3, :3] = [[1 - 2 * (b * b + c * c), 2 * (a * b - c * w), 2 * (a * c + b * w)],
+                 [2 * (a * b + c * w), 1 - 2 * (a * a + c * c), 2 * (b * c - a * w)],
+                 [2 * (a * c - b * w), 2 * (b * c + a * w), 1 - 2 * (a * a + b * b)]]
+    T[:3, 3] = [x, y, z]
+    return T
+
+
+def is_valid_pose(T, tol: float = 1e-6) -> bool:
+    """4x4, finite, orthonormal right-handed rotation, last row [0,0,0,1]."""
+    T = np.asarray(T, float)
+    if T.shape != (4, 4) or not np.all(np.isfinite(T)):
+        return False
+    R = T[:3, :3]
+    return (np.allclose(R.T @ R, np.eye(3), atol=tol) and abs(np.linalg.det(R) - 1) < tol
+            and np.allclose(T[3], [0, 0, 0, 1], atol=tol))

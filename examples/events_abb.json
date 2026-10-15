@@ -1,0 +1,7 @@
+{
+  "SpindleOn": "SetDO doSpindle,1;",
+  "SpindleOnCCW": "SetDO doSpindleCCW,1;",
+  "SpindleOff": "SetDO doSpindle,0;",
+  "Spindle": "SetAO aoSpindleSpeed,{0};",
+  "SetTool": "! narzedzie T{0} - wymiana recznie / w procedurze celi"
+}
