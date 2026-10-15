@@ -6,6 +6,7 @@ kolejności: frezowanie kooperatywne dwoma ramionami (jedno trzyma detal, drugie
 
 > **Wymagania, konwencje, architektura, roadmapa i stan prac są w jednym dokumencie:
 > [`docs/SPECYFIKACJA.md`](docs/SPECYFIKACJA.md).** W razie rozbieżności obowiązuje ten plik.
+> Co zrobione i co dalej (kolejka prac): [`docs/ROADMAP.txt`](docs/ROADMAP.txt).
 > Bot programujący: przeczytaj go w całości przed pierwszą zmianą, zwłaszcza §2 (zasady), §3 (decyzje)
 > i §4 (konwencje).
 
