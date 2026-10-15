@@ -1,0 +1,9 @@
+# Start pose of the simulated KR10 [rad] = roboCODE KR10 cell start (0, -90, 90, 0, 30, 0) deg
+# (robocode/ros/cell.py START_JOINTS_DEG). Original ClaBirk start pose is the SRDF state "clabirk_home".
+initial_positions:
+  joint_1: 0.0
+  joint_2: -1.5707963
+  joint_3: 1.5707963
+  joint_4: 0.0
+  joint_5: 0.5235988
+  joint_6: 0.0

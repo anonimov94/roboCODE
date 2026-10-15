@@ -45,6 +45,7 @@ class SimResult:
     cycle_time_s: float
     trace: list[np.ndarray] = field(default_factory=list)  # TCP positions (abs, mm)
     joints: list[np.ndarray] = field(default_factory=list)
+    times: list[float] = field(default_factory=list)  # time_from_start of each joint sample [s] (estimate)
     report: ValidationReport = field(default_factory=ValidationReport)
     max_contour_deviation_mm: float = 0.0
     mean_contour_deviation_mm: float = 0.0
@@ -212,10 +213,12 @@ def simulate(program: Program, step_mm: float | None = None, tol: SimTolerances 
             axis_times = [_trapezoidal_time(float(distance), float(speed), a_j)
                           for distance, speed in zip(dq, joint_speeds)]
             t_move = max(axis_times, default=0.0)
+            t_start = res.cycle_time_s
             res.cycle_time_s += t_move
             for t in np.linspace(0, 1, max(2, int(dq.max() / tol.step_deg) + 1)):
                 qq = q + t * (target - q)
                 res.joints.append(qq)
+                res.times.append(t_start + t * t_move)
                 res.trace.append(tcp_abs(qq)[:3, 3])
                 check_sample(idx, line, qq)
                 rep.samples_checked += 1
@@ -251,6 +254,7 @@ def simulate(program: Program, step_mm: float | None = None, tol: SimTolerances 
                 n = max(2, int(np.ceil(max(dist / tol.step_mm, ang / tol.step_ori_deg))) + 1)
                 # Rest-to-rest translation estimate; orientation remains speed-limited.
                 seg_time = max(_trapezoidal_time(dist, v_lin, a_lin), ang / tol.ori_speed_deg_s)
+                t_start = res.cycle_time_s
                 res.cycle_time_s += seg_time
                 dt = seg_time / (n - 1) if n > 1 else 0.0
                 known = ins.joints_end if isinstance(ins, MoveC) else ins.joints
@@ -293,6 +297,7 @@ def simulate(program: Program, step_mm: float | None = None, tol: SimTolerances 
                                   instruction=idx, source_line=line,
                                   hint="sprawdź kolejny MoveJ / konfigurację startową")
                     res.joints.append(q)
+                    res.times.append(t_start + t * seg_time)
                     res.trace.append(tcp_abs(q)[:3, 3])
                     contour_deviation = float(np.linalg.norm(
                         res.trace[-1] - (r.pose_abs() @ Ti)[:3, 3]

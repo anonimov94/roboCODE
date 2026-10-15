@@ -26,11 +26,11 @@ from .post.tool_load import ToolLoad
 def run_machining(nc_text: str, post: str, out: str, settings: MachiningSettings | None = None,
                   station: str | None = None, nc_name: str = "<demo>", strict: bool = True,
                   event_map: dict | None = None, tool_load: ToolLoad | None = None,
-                  max_lines_per_file: int | None = None) -> int:
+                  max_lines_per_file: int | None = None, ros: bool = False) -> int:
     """Pipeline: parse -> solve -> validate -> post -> verify -> manifest. Exit 0 = exported, 2 = blocked."""
     job = run_job(nc_text, post=post, out_dir=out, settings=settings or MachiningSettings(),
                   station_path=station, nc_name=nc_name, strict=strict, event_map=event_map,
-                  tool_load=tool_load, max_lines_per_file=max_lines_per_file)
+                  tool_load=tool_load, max_lines_per_file=max_lines_per_file, ros_trajectory=ros)
     print(job.message)
     print(job.report.summary())
     print("Manifest:", job.manifest_path)
@@ -63,6 +63,8 @@ def main(argv=None):
                    help="wypisz konfiguracje IK (etykiety F/R, U/D, F/N) dla pierwszego punktu i zakończ")
     m.add_argument("--start-config", type=int, default=None,
                    help="wybór konfiguracji początkowej 1-based z --list-start-configurations")
+    m.add_argument("--ros", action="store_true",
+                   help="zapisz też <nazwa>.ros_trajectory.json do odtworzenia w ROS 2 / Gazebo (ros2/)")
     m.add_argument("--no-strict", action="store_true",
                    help="nieobsługiwane kody NC jako ostrzeżenia zamiast błędów (NIEZALECANE)")
     rd = sub.add_parser("render", help="Zrzut sceny demo z ścieżką do PNG (offscreen)")
@@ -118,7 +120,7 @@ def main(argv=None):
                 return 2
         return run_machining(nc_text, a.post, a.out, s, station=a.station,
                              nc_name=Path(a.nc).name, strict=not a.no_strict, event_map=events,
-                             tool_load=tool_load, max_lines_per_file=a.max_lines_per_file)
+                             tool_load=tool_load, max_lines_per_file=a.max_lines_per_file, ros=a.ros)
     if a.cmd == "render":
         from .gui.render import render_png
         from .program.simulator import simulate as _sim

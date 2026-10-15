@@ -19,6 +19,19 @@ plik NC ─► parser (stan modalny, tryb ścisły) ─► solver (obrót Z, naj
 ```
 Błąd krytyczny na którymkolwiek etapie = **brak pliku dla robota** i raport wskazujący linię NC.
 
+## ROS 2 + Gazebo (folder `ros2/`)
+
+roboCODE ma celę symulacyjną **ROS 2 Jazzy + Gazebo Harmonic + MoveIt 2** z robotem KUKA KR 10 R1100 sixx
+(przeniesiony i przeportowany projekt [ClaBirk/ROS2_Gazebo_Moveit_Simulation](https://github.com/ClaBirk/ROS2_Gazebo_Moveit_Simulation)).
+roboCODE dalej działa sam na Windows; po walidacji może zapisać trajektorię osi, którą ROS 2 odtwarza w Gazebo:
+
+```bash
+python -m robocode.cli machine examples/square.nc --station examples/kr10_cell.rcs.json --ros --out out
+# w WSL2/Linux: ros2 launch robocode_bringup sim.launch.py trajectory_file:=.../out/Machining.ros_trajectory.json
+```
+
+Instalacja (WSL2), uruchomienie i ograniczenia: [`ros2/README.md`](ros2/README.md). Zawartość `ros2/` jest na licencji GPL-3.0.
+
 ## Launcher dla Windows (roboCODE.exe)
 
 1. Dwuklik **`build_exe.bat`**: tworzy `.venv` (jeśli go nie ma), instaluje zależności (z GUI) i PyInstaller,
@@ -68,7 +81,7 @@ Na Windows GUI jest budowane jako `roboCODE-GUI.exe` (patrz „Launcher dla Wind
 
 ## Ważne ograniczenia
 
-- Modele obejmują model syntetyczny do testów i nominalny UR5e; żaden nie zastępuje kalibracji
+- Modele obejmują model syntetyczny do testów, nominalny UR5e i nominalny KUKA KR 10 R1100 sixx (z celi ROS 2); żaden nie zastępuje kalibracji
   konkretnego robota, TCP, bazy i obciążenia.
 - Pliki KRL/RAPID przechodzą wewnętrzny read-back, ale nie były kompilowane w WorkVisual/
   RobotStudio ani weryfikowane na sterowniku.

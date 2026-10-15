@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Semantic description of the KR10 milling cell (MoveIt 2).
+  Ported from ClaBirk/ROS2_Gazebo_Moveit_Simulation kr10zelle_moveit_config/config/KR_10.srdf (GPL-3.0).
+  Changes: planning group "kr10_arm" is the chain base_link -> tcp (spindle tip) instead of a joint list,
+  so MoveIt plans the spindle tip directly (the original subtracted the link_6 -> tool offset by hand);
+  link "tool" is called "spindle".
+-->
+<robot name="kr10_cell">
+  <group name="kr10_arm">
+    <chain base_link="base_link" tip_link="tcp"/>
+  </group>
+
+  <group_state name="home" group="kr10_arm">
+    <joint name="joint_1" value="0"/>
+    <joint name="joint_2" value="-1.5707963"/>
+    <joint name="joint_3" value="1.5707963"/>
+    <joint name="joint_4" value="0"/>
+    <joint name="joint_5" value="0.5235988"/>
+    <joint name="joint_6" value="0"/>
+  </group_state>
+  <!-- "home" of the original project -->
+  <group_state name="clabirk_home" group="kr10_arm">
+    <joint name="joint_1" value="-0.6065"/>
+    <joint name="joint_2" value="-0.7782"/>
+    <joint name="joint_3" value="1.392"/>
+    <joint name="joint_4" value="0.0178"/>
+    <joint name="joint_5" value="0.1967"/>
+    <joint name="joint_6" value="-0.1012"/>
+  </group_state>
+
+  <virtual_joint name="virtual_joint" type="fixed" parent_frame="world" child_link="world"/>
+
+  <disable_collisions link1="base_link" link2="gehause" reason="Never"/>
+  <disable_collisions link1="base_link" link2="link_1" reason="Adjacent"/>
+  <disable_collisions link1="base_link" link2="link_3" reason="Never"/>
+  <disable_collisions link1="base_link" link2="tisch" reason="Never"/>
+  <disable_collisions link1="base_link" link2="tuer" reason="Never"/>
+  <disable_collisions link1="base_link" link2="unterlage" reason="Adjacent"/>
+  <disable_collisions link1="flange" link2="link_3" reason="Never"/>
+  <disable_collisions link1="flange" link2="link_5" reason="Never"/>
+  <disable_collisions link1="flange" link2="link_6" reason="Adjacent"/>
+  <disable_collisions link1="flange" link2="spindle" reason="Adjacent"/>
+  <disable_collisions link1="gehause" link2="link_1" reason="Never"/>
+  <disable_collisions link1="gehause" link2="link_5" reason="Default"/>
+  <disable_collisions link1="gehause" link2="link_6" reason="Default"/>
+  <disable_collisions link1="gehause" link2="tisch" reason="Adjacent"/>
+  <disable_collisions link1="gehause" link2="tuer" reason="Adjacent"/>
+  <disable_collisions link1="gehause" link2="unterlage" reason="Never"/>
+  <disable_collisions link1="link_1" link2="link_2" reason="Adjacent"/>
+  <disable_collisions link1="link_1" link2="link_3" reason="Never"/>
+  <disable_collisions link1="link_1" link2="link_4" reason="Never"/>
+  <disable_collisions link1="link_1" link2="tisch" reason="Never"/>
+  <disable_collisions link1="link_1" link2="tuer" reason="Never"/>
+  <disable_collisions link1="link_1" link2="unterlage" reason="Never"/>
+  <disable_collisions link1="link_2" link2="link_3" reason="Adjacent"/>
+  <disable_collisions link1="link_2" link2="link_5" reason="Never"/>
+  <disable_collisions link1="link_2" link2="link_6" reason="Never"/>
+  <disable_collisions link1="link_2" link2="tisch" reason="Never"/>
+  <disable_collisions link1="link_2" link2="tuer" reason="Never"/>
+  <disable_collisions link1="link_2" link2="unterlage" reason="Never"/>
+  <disable_collisions link1="link_3" link2="link_4" reason="Adjacent"/>
+  <disable_collisions link1="link_3" link2="link_5" reason="Never"/>
+  <disable_collisions link1="link_3" link2="link_6" reason="Never"/>
+  <disable_collisions link1="link_3" link2="spindle" reason="Never"/>
+  <disable_collisions link1="link_3" link2="tuer" reason="Never"/>
+  <disable_collisions link1="link_3" link2="unterlage" reason="Never"/>
+  <disable_collisions link1="link_4" link2="link_5" reason="Adjacent"/>
+  <disable_collisions link1="link_4" link2="link_6" reason="Never"/>
+  <disable_collisions link1="link_5" link2="link_6" reason="Adjacent"/>
+  <disable_collisions link1="link_5" link2="spindle" reason="Never"/>
+  <disable_collisions link1="link_6" link2="spindle" reason="Never"/>
+  <disable_collisions link1="tisch" link2="tuer" reason="Never"/>
+  <disable_collisions link1="tisch" link2="unterlage" reason="Adjacent"/>
+  <disable_collisions link1="tuer" link2="unterlage" reason="Never"/>
+</robot>

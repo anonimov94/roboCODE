@@ -4,7 +4,7 @@
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
            (C) = zrobione przez Copilota i sprawdzone   (!) = poprawione po przegladzie
  Szczegoly: docs/SPECYFIKACJA.md (10, 11, 13.2 przeglad botow, 13.3 przeglad Copilota)
- Kod: 0.2.0.dev0 | 189 testow OK (+8 GUI pominietych bez Qt) | galaz fix/copilot-review
+ Kod: 0.2.0.dev0 | 195 testow OK (+9 pominietych bez Qt) + 10 testow ros2/robocode_ros | galaz feature/ros2-gazebo
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
@@ -58,6 +58,18 @@
  |  [~] prototyp solvera A trzyma detal / B wrzeciono
  |  [ ] >>9  kalibracja baz A<->B w przeplywie, podzial ruchu,
  |           dwa zsynchronizowane programy, walidacja kolizji A-B
+ |
+ ROS 2 + GAZEBO  (decyzja D9, 15.10.2026)            [######----]  60%
+ |  [x] projekt ClaBirk przeniesiony do ros2/ i przeportowany na
+ |      ROS 2 Jazzy + Gazebo Harmonic + MoveIt 2 (OMPL + Pilz)
+ |  [x] model KUKA KR10 R1100 sixx w bibliotece, FK = URDF (test)
+ |  [x] machine --ros -> <nazwa>.ros_trajectory.json (tylko po walidacji)
+ |  [x] trajectory_player (ROS 2) + sciezka TCP w RViz, wezel KRL->Pilz
+ |  [ ] >>R1 colcon build + uruchomienie w WSL2 (Gazebo i sim:=mock)  [TY]
+ |  [ ] >>R2 poprawki po pierwszym uruchomieniu w ROS 2
+ |  [ ]      zmierzyc TCP wrzeciona i polozenie detalu w celi
+ |  [ ]      GUI: przycisk "Wyslij do Gazebo"; 2 ramiona w ROS (v0.8)
+ |  [ ]      licencja calego repo (ros2/ jest GPL-3.0)          [decyzja]
  |
  v1.0  PRODUCTION                                   [----------]   0%
     [ ] >>10 dokumentacja uzytkownika, posty Fanuc / Yaskawa,

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>robocode_milling_cpp</name>
+  <version>0.2.0</version>
+  <description>Executes KUKA KRL LIN milling programs (*.src) in the simulated KR10 cell with MoveIt 2 / Pilz. Port of ClaBirk ros_milling_cpp.</description>
+  <maintainer email="noreply@example.com">anonimov94</maintainer>
+  <license>GPL-3.0-only</license>
+  <author>ClaBirk (original ros_milling_cpp)</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>geometry_msgs</depend>
+  <depend>moveit_ros_planning_interface</depend>
+
+  <exec_depend>pilz_industrial_motion_planner</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>robocode_kr10_moveit_config</name>
+  <version>0.2.0</version>
+  <description>MoveIt 2 configuration (OMPL + Pilz) for the roboCODE KR10 milling cell. Ported from ClaBirk kr10zelle_moveit_config.</description>
+  <maintainer email="noreply@example.com">anonimov94</maintainer>
+  <license>GPL-3.0-only</license>
+  <author>ClaBirk (original kr10zelle_moveit_config)</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>robocode_kr10_description</exec_depend>
+  <exec_depend>moveit_configs_utils</exec_depend>
+  <exec_depend>moveit_ros_move_group</exec_depend>
+  <exec_depend>moveit_kinematics</exec_depend>
+  <exec_depend>moveit_planners_ompl</exec_depend>
+  <exec_depend>pilz_industrial_motion_planner</exec_depend>
+  <exec_depend>moveit_simple_controller_manager</exec_depend>
+  <exec_depend>moveit_ros_visualization</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,136 @@
+<?xml version="1.0"?>
+<!--
+  KUKA KR 10 R1100 sixx – arm only (base_link .. link_6).
+  Ported from ClaBirk/ROS2_Gazebo_Moveit_Simulation (ros_sim/urdf/kr10_full_moveit_gazebo.xacro), GPL-3.0.
+  Joint origins, axes and limits are unchanged; roboCODE's kinematic model
+  (robocode/robots/kuka_kr10_r1100_sixx.robot.json) is tested against them (tests/test_kr10_model.py).
+  Fixes vs. the original: negative/implausible inertia values replaced, link1 inertial origin
+  taken from the original Gazebo variant, joint names identical in URDF and ros2_control.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="mesh_dir" value="package://robocode_kr10_description/meshes"/>
+  <xacro:property name="kuka_orange" value="${246/255} ${120/255} ${40/255} 1.0"/>
+  <xacro:property name="kuka_black" value="${14/255} ${14/255} ${16/255} 1.0"/>
+
+  <xacro:macro name="kr10_link" params="name color *inertial">
+    <link name="${name}">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><mesh filename="${mesh_dir}/visual/${name}.stl"/></geometry>
+        <material name="${name}_color"><color rgba="${color}"/></material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry><mesh filename="${mesh_dir}/collision/${name}.stl"/></geometry>
+      </collision>
+      <xacro:insert_block name="inertial"/>
+    </link>
+  </xacro:macro>
+
+  <xacro:macro name="kr10_joint" params="name parent child xyz axis lower upper velocity">
+    <joint name="${name}" type="revolute">
+      <origin xyz="${xyz}" rpy="0 0 0"/>
+      <parent link="${parent}"/>
+      <child link="${child}"/>
+      <axis xyz="${axis}"/>
+      <limit effort="1000" lower="${radians(lower)}" upper="${radians(upper)}" velocity="${radians(velocity)}"/>
+      <dynamics damping="1.0" friction="0.0"/>
+    </joint>
+  </xacro:macro>
+
+  <!-- KR10 arm attached to `parent` -->
+  <xacro:macro name="kr10_arm" params="parent *origin">
+    <joint name="${parent}-base_link" type="fixed">
+      <xacro:insert_block name="origin"/>
+      <parent link="${parent}"/>
+      <child link="base_link"/>
+    </joint>
+
+    <xacro:kr10_link name="base_link" color="${kuka_black}">
+      <inertial>
+        <origin xyz="-0.0444859 -4.97e-05 0.1100921" rpy="0 0 0"/>
+        <mass value="14"/>
+        <inertia ixx="0.08877213773" ixy="-0.000131033070251" ixz="-0.00150261923247"
+                 iyy="0.14293778144" iyz="-2.25256850538e-05" izz="0.126259385464"/>
+      </inertial>
+    </xacro:kr10_link>
+
+    <xacro:kr10_link name="link_1" color="${kuka_orange}">
+      <inertial>
+        <origin xyz="0.0146723 5.46e-05 -0.0557645" rpy="0 0 0"/>
+        <mass value="11.2"/>
+        <inertia ixx="0.10800091083" ixy="0.000256908100066" ixz="-0.00448959204754"
+                 iyy="0.0892932854513" iyz="-0.000186133409604" izz="0.0838171097348"/>
+      </inertial>
+    </xacro:kr10_link>
+
+    <xacro:kr10_link name="link_2" color="${kuka_orange}">
+      <inertial>
+        <origin xyz="0.2482357 -0.0029221 0.0079418" rpy="0 0 0"/>
+        <mass value="8.4"/>
+        <inertia ixx="0.0365241429014" ixy="0.00223732223794" ixz="-0.00177293915942"
+                 iyy="0.378539351981" iyz="2.8964263294e-06" izz="0.392538210121"/>
+      </inertial>
+    </xacro:kr10_link>
+
+    <xacro:kr10_link name="link_3" color="${kuka_orange}">
+      <inertial>
+        <origin xyz="0.0160924 2.38e-05 0.0105013" rpy="0 0 0"/>
+        <mass value="8.4"/>
+        <inertia ixx="0.0238712171376" ixy="1.72719757663e-06" ixz="-0.00409828855491"
+                 iyy="0.0325090200419" iyz="-1.11535979101e-05" izz="0.0287380207905"/>
+      </inertial>
+    </xacro:kr10_link>
+
+    <xacro:kr10_link name="link_4" color="${kuka_orange}">
+      <inertial>
+        <origin xyz="0.301148 -0.0004543 0.000235" rpy="0 0 0"/>
+        <mass value="5.6"/>
+        <inertia ixx="0.0101469645454" ixy="0.000122992246096" ixz="-8.45337146292e-05"
+                 iyy="0.070495864179" iyz="8.8953596453e-07" izz="0.0717697213772"/>
+      </inertial>
+    </xacro:kr10_link>
+
+    <xacro:kr10_link name="link_5" color="${kuka_orange}">
+      <inertial>
+        <origin xyz="0.0157906 0.0019162 -0.0002449" rpy="0 0 0"/>
+        <mass value="5.6"/>
+        <inertia ixx="0.00402901710341" ixy="0.000210543968708" ixz="4.6068390983e-05"
+                 iyy="0.00668778512296" iyz="1.26910167997e-06" izz="0.00711775677213"/>
+      </inertial>
+    </xacro:kr10_link>
+
+    <xacro:kr10_link name="link_6" color="${kuka_black}">
+      <inertial>
+        <origin xyz="-0.0075312 1e-07 -0.0009341" rpy="0 0 0"/>
+        <mass value="2.8"/>
+        <!-- original iyy was negative (copy of ixz); replaced by a plausible value -->
+        <inertia ixx="0.000603033772181" ixy="0.0" ixz="-4.00686891815e-06"
+                 iyy="0.0004" iyz="0.0" izz="0.000340583858042"/>
+      </inertial>
+    </xacro:kr10_link>
+
+    <!-- KUKA axis data (limits / max speed in deg, deg/s) as in the original cell -->
+    <xacro:kr10_joint name="joint_1" parent="base_link" child="link_1" xyz="0 0 0.400" axis="0 0 -1"
+                      lower="-170" upper="170" velocity="300"/>
+    <xacro:kr10_joint name="joint_2" parent="link_1" child="link_2" xyz="0.025 0 0" axis="0 1 0"
+                      lower="-190" upper="45" velocity="225"/>
+    <xacro:kr10_joint name="joint_3" parent="link_2" child="link_3" xyz="0.560 0 0" axis="0 1 0"
+                      lower="-120" upper="156" velocity="225"/>
+    <xacro:kr10_joint name="joint_4" parent="link_3" child="link_4" xyz="0 0 0.035" axis="-1 0 0"
+                      lower="-185" upper="185" velocity="381"/>
+    <xacro:kr10_joint name="joint_5" parent="link_4" child="link_5" xyz="0.515 0 0" axis="0 1 0"
+                      lower="-120" upper="120" velocity="311"/>
+    <xacro:kr10_joint name="joint_6" parent="link_5" child="link_6" xyz="0.080 0 0" axis="-1 0 0"
+                      lower="-350" upper="350" velocity="492"/>
+
+    <!-- tool0: Z out of the flange (ROS-Industrial convention) = roboCODE flange frame -->
+    <link name="tool0"/>
+    <joint name="link_6-tool0" type="fixed">
+      <origin xyz="0 0 0" rpy="0 ${pi/2} 0"/>
+      <parent link="link_6"/>
+      <child link="tool0"/>
+    </joint>
+  </xacro:macro>
+</robot>

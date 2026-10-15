@@ -129,7 +129,7 @@ def _finish(rep: ValidationReport, manifest: dict, out_dir: Path, name: str, ok:
     if not ok:
         old_outputs = set(out_dir.glob(f"{name}.*")) | set(out_dir.glob(f"{name}_*.*"))
         for p in sorted(old_outputs):
-            if p.suffix in (".src", ".mod", ".txt"):
+            if p.suffix in (".src", ".mod", ".txt") or p.name.endswith(".ros_trajectory.json"):
                 rep.add(Severity.WARNING, "STALE_OUTPUT", f"W folderze leży starszy plik {p.name} z innego "
                         "przebiegu – NIE odpowiada temu wejściu", stage="post", hint="usuń go albo nie wysyłaj")
     manifest["validation"] = rep.to_dict()
@@ -144,10 +144,13 @@ def export_program(program: Program, post: str, out_dir: str | Path, limits: Val
                    parser_warnings: list[str] | None = None, manifest: dict | None = None,
                    report: ValidationReport | None = None, event_map: dict[str, str] | None = None,
                    tool_load: ToolLoad | None = None, max_lines_per_file: int | None = None,
-                   collision_checker: CollisionChecker | None = None) -> JobResult:
+                   collision_checker: CollisionChecker | None = None, ros_trajectory: bool = False) -> JobResult:
     """The ONLY sanctioned way to write a controller file: validate -> post -> read-back -> atomic write.
 
     Used by the CLI pipeline and by the GUI (F6). Always writes <name>.manifest.json.
+    With ``ros_trajectory=True`` the validated joint trajectory is also written as
+    <name>.ros_trajectory.json for the ROS 2 / Gazebo player (docs D9); it is part of the same
+    all-or-nothing export and listed with its SHA-256 in the manifest.
     """
     out_dir = Path(out_dir)
     rep = report if report is not None else ValidationReport()
@@ -162,12 +165,22 @@ def export_program(program: Program, post: str, out_dir: str | Path, limits: Val
     manifest["collision_check"] = _collision_check_info(collision_checker)
     name = program.name
 
-    vrep, _ = validate_program(program, limits, parser_warnings=parser_warnings,
-                               mapped_events=set(event_map or ()), collision_checker=collision_checker)
+    vrep, sim = validate_program(program, limits, parser_warnings=parser_warnings,
+                                 mapped_events=set(event_map or ()), collision_checker=collision_checker)
     manifest["event_map"] = dict(event_map or {})
     rep.extend(vrep)
     if not rep.ok:
         return _finish(rep, manifest, out_dir, name, False, [], "✗ Walidacja nie przeszła – eksport zablokowany")
+    ros_data = None
+    manifest["ros_trajectory"] = bool(ros_trajectory)
+    if ros_trajectory:
+        from .ros import build_trajectory
+        try:
+            ros_data = build_trajectory(program, sim)
+        except ValueError as exc:
+            rep.add(Severity.ERROR, "ROS_TRAJECTORY", str(exc), stage="post",
+                    hint="wybierz model robota powiązany z ROS 2 (np. kuka_kr10_r1100_sixx)")
+            return _finish(rep, manifest, out_dir, name, False, [], "✗ Trajektoria ROS 2 nie powstała – eksport zablokowany")
 
     pp = get_post(post, event_map, tool_load)
     # splitting is OPT-IN (review of Copilot change): a split part needs a restart sequence, and the
@@ -229,8 +242,14 @@ def export_program(program: Program, post: str, out_dir: str | Path, limits: Val
                 "z poprzedniego przebiegu – NIE należy jej uruchamiać",
                 stage="post", hint="usuń plik po ręcznym sprawdzeniu folderu eksportu")
     outputs = [atomic_write_text(out_dir / f"{part.name}{pp.ext}", text) for part, text in chunks]
-    if len(outputs) > 1:
-        rep.add(Severity.INFO, "PROGRAM_SPLIT", f"Program podzielono na {len(outputs)} pliki "
+    if ros_data is not None:
+        outputs.append(atomic_write_text(out_dir / f"{name}.ros_trajectory.json",
+                                         json.dumps(ros_data, indent=1, ensure_ascii=False)))
+        rep.add(Severity.INFO, "ROS_TRAJECTORY", f"Zapisano trajektorię ROS 2: {len(ros_data['points'])} punktów, "
+                f"≈{ros_data['cycle_time_s_estimate']:.1f} s (estymata)", stage="post",
+                hint="odtwórz: ros2 run robocode_ros trajectory_player --ros-args -p trajectory_file:=<plik>")
+    if len(chunks) > 1:
+        rep.add(Severity.INFO, "PROGRAM_SPLIT", f"Program podzielono na {len(chunks)} pliki "
                 f"(maks. {line_limit} linii każdy); każda część od 2. zaczyna od PTP nad ścieżką, "
                 "włączenia wrzeciona i zagłębienia; każda poza ostatnią kończy odjazdem.", stage="post",
                 hint="uruchamiaj części kolejno; pierwszy przebieg w T1")
@@ -243,7 +262,7 @@ def run_job(nc_text: str, post: str = "kuka", out_dir: str | Path = "out", name:
             station_path: str | None = None, nc_name: str = "<text>", strict: bool = True,
             event_map: dict[str, str] | None = None, tool_load: ToolLoad | None = None,
             max_lines_per_file: int | None = None,
-            collision_checker: CollisionChecker | None = None) -> JobResult:
+            collision_checker: CollisionChecker | None = None, ros_trajectory: bool = False) -> JobResult:
     """Run the whole pipeline. Never raises for operator-level problems: they land in the report."""
     out_dir = Path(out_dir)
     settings = settings or MachiningSettings()
@@ -302,7 +321,7 @@ def run_job(nc_text: str, post: str = "kuka", out_dir: str | Path = "out", name:
             "label": selected.label,
         }
     return export_program(res.program, post, out_dir, limits, tp.warnings, manifest, rep, event_map, tool_load,
-                          max_lines_per_file, collision_checker)
+                          max_lines_per_file, collision_checker, ros_trajectory=ros_trajectory)
 
 
 def export_or_raise(job: JobResult) -> list[Path]:
