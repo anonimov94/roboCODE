@@ -1,0 +1,234 @@
+roboCODE — Plan rozwoju (Roadmap)
+=====================================
+Data: 15 października 2026
+Autor planu: ustalenia z sesji Grok
+
+Założenia planu:
+- Solo / mały zespół (1–2 osoby)
+- Każdy build ma być używalny i testowalny
+- Priorytet: generowanie realnych programów obróbki, a nie „ładne GUI”
+- Dual-arm i zaawansowane rzeczy na później
+- Python + numpy + PySide6 + pyvista
+
+
+==================================================
+PODZIAŁ NA WERSJE
+==================================================
+
+Wersja     | Nazwa robocza          | Cel główny                              | Szacowany czas*
+-----------|------------------------|-----------------------------------------|----------------
+v0.1       | Foundation             | Szkielet + podstawy                     | już prawie gotowe
+v0.2       | Core                   | Kinematyka + stacja                     | 4–7 tygodni
+v0.3       | MVP Machining          | Pierwszy działający pipeline obróbki    | 6–10 tygodni
+v0.4       | Simulation & Post      | Symulacja + eksport do robota           | 5–8 tygodni
+v0.5       | Usable GUI             | Da się normalnie pracować               | 6–9 tygodni
+v0.6       | Advanced Machining     | Kalibracje + lepszy solver              | 6–10 tygodni
+v0.7       | Robustness             | Kolizje + osie zewnętrzne               | 7–12 tygodni
+v0.8       | Dual-Arm               | Tryb kooperatywny                       | 8–14 tygodni
+v1.0       | Production             | Pełna, stabilna wersja                  | 6–10 tygodni
+
+* przy 15–25h/tydzień
+
+
+==================================================
+SZCZEGÓŁOWY PLAN FUNKCJI
+==================================================
+
+--------------------------------------------------
+v0.1 – Foundation (obecny stan + domknięcie)
+--------------------------------------------------
+Cel: Czysty, testowalny szkielet.
+
+Funkcje:
+- Struktura pakietu (core, kinematics, machining, program, post, gui…)
+- Pose (macierze 4×4, konwersje Euler / kwaternion)
+- Podstawowa scena (Station, Item, Frame, Robot, Tool)
+- System komend + UndoStack
+- CLI skeleton
+- Podstawowe testy pytest
+- pyproject.toml + zależności
+
+Kryterium ukończenia:
+pytest przechodzi, da się stworzyć stację i zapisać/odczytać .rcs.json.
+
+
+--------------------------------------------------
+v0.2 – Core
+--------------------------------------------------
+Cel: Solidna kinematyka i drzewo stacji.
+
+Nowe funkcje:
+- Model DH 6-osiowy (FK dokładny)
+- IK numeryczne (fallback) + lista rozwiązań z flagami konfiguracji
+- Limity osi (sprzętowe + programowe)
+- Narzędzie (TCP względem kołnierza)
+- Układy odniesienia (zagnieżdżanie)
+- Cele kartezjańskie i przegubowe
+- Podstawowe instrukcje: MoveJ, MoveL, SetFrame, SetTool, SetSpeed
+- Biblioteka 1–2 robotów (np. KUKA KR6 + UR10e lub ABB) z plikami .robot.json
+
+Kryterium ukończenia:
+Da się programowo stworzyć stację, nauczyć cel, dodać MoveL i policzyć IK.
+
+
+--------------------------------------------------
+v0.3 – MVP Machining  ← PRAWDZIWE MINIMUM FUNKCJONALNE
+--------------------------------------------------
+Cel: Pierwszy pełny pipeline: G-code → program robota.
+
+Nowe funkcje:
+- Parser G-code (G0/G1 + normalne IJK lub A/B/C)
+- Toolpath (pozycja + normalna + posuw)
+- Solver ścieżki → cele robota:
+    • Path-to-tool offset
+    • Optymalizacja obrotu wokół Z narzędzia (prosta wersja ±180°)
+    • Preferowana konfiguracja startowa
+- Generowanie programu (MoveL + automatyczne SetFrame/SetTool)
+- Najazd/odjazd wzdłuż normalnej
+- CLI: robocode generate i robocode simulate (bez GUI)
+
+Kryterium ukończenia:
+Dla prostego frezowania powierzchni (G-code) generuje się poprawny program,
+który da się otworzyć w oficjalnym oprogramowaniu producenta
+(nawet jeśli jeszcze nie jest idealny).
+
+
+--------------------------------------------------
+v0.4 – Simulation & Post
+--------------------------------------------------
+Cel: Da się zobaczyć ruch i wygenerować kod na kontroler.
+
+Nowe funkcje:
+- Symulator (interpolacja MoveJ/MoveL, oś czasu, ślad TCP)
+- Podstawowe postprocesory:
+    • KUKA KRL (.src / .dat)
+    • ABB RAPID (.mod)
+- Opcje postprocesora (dzielenie długich programów, zamiana łuków)
+- Walidacja MoveL (singularności, limity osi, zmiana konfiguracji)
+- Czas cyklu
+
+Kryterium ukończenia:
+Program z v0.3 da się zasymulować i wyeksportować do KRL/RAPID,
+a następnie wgrać na prawdziwego robota (po kalibracji ręcznej).
+
+
+--------------------------------------------------
+v0.5 – Usable GUI
+--------------------------------------------------
+Cel: Normalna praca bez CLI.
+
+Nowe funkcje:
+- Deklaratywne actions.py + main_window.py (PySide6)
+- Drzewo stacji (lewy panel)
+- Viewport 3D (pyvista) – robot, narzędzie, ścieżka, cele
+- Panel właściwości
+- Podstawowe skróty (Ctrl+S, Ctrl+Z, Ctrl+T, F6…)
+- Projekt obróbki (okno z ustawieniami + przycisk Aktualizuj / Symuluj)
+- Podgląd osiągalności punktów (zielone/czerwone)
+
+Kryterium ukończenia:
+Cały workflow z v0.3–v0.4 da się zrobić wyłącznie z GUI.
+
+
+--------------------------------------------------
+v0.6 – Advanced Machining
+--------------------------------------------------
+Cel: Jakość i wygoda na poziomie użytecznym w realnej pracy.
+
+Nowe funkcje:
+- Kalibracja TCP (metoda N punktów + least squares)
+- Kalibracja układu (3 punkty + Kabsch z N punktów)
+- Lepsze algorytmy orientacji:
+    • Minimalna zmiana orientacji
+    • Orientacja podąża za ścieżką
+    • Remote TCP (robot trzyma obiekt)
+- Zdarzenia programu (M-kody, zmiana narzędzia, wrzeciono)
+- Import krzywych/punktów z CSV
+- MoveC
+- Makra Python
+
+Kryterium ukończenia:
+Da się skalibrować TCP i układ, a potem wygenerować dobry program 5-osiowy
+z optymalizacją.
+
+
+--------------------------------------------------
+v0.7 – Robustness
+--------------------------------------------------
+Cel: Bezpieczeństwo i bardziej złożone cele.
+
+Nowe funkcje:
+- Sprawdzanie kolizji (na początek bounding box / proste siatki + python-fcl lub trimesh)
+- Osie zewnętrzne (szyna + pozycjoner) – podstawowa optymalizacja
+- Mapa kolizji
+- Lepsza walidacja i ostrzeżenia
+- Eksport symulacji do HTML 3D (opcjonalnie)
+- Więcej modeli robotów + lepsze postprocesory
+
+Kryterium ukończenia:
+Programy są sprawdzane pod kątem kolizji i limitów, da się pracować z pozycjonerem.
+
+
+--------------------------------------------------
+v0.8 – Dual-Arm Cooperative
+--------------------------------------------------
+Cel: Wyróżnik projektu.
+
+Nowe funkcje:
+- Model dwóch robotów + kalibracja baz A↔B (Kabsch)
+- Solver dual-arm:
+    • Podział ruchu (A orientuje detal, B obrabia)
+    • Kryteria kosztu (manipulowalność, limity, ciągłość, kolizje A-B)
+- Generowanie dwóch zsynchronizowanych programów
+- Podstawowa wizualizacja obu robotów
+
+Kryterium ukończenia:
+Prosty przypadek kooperatywny (detal trzymany przez jednego robota)
+generuje działające programy.
+
+
+--------------------------------------------------
+v1.0 – Production Ready
+--------------------------------------------------
+Cel: Stabilna, dokumentowana, użyteczna wersja.
+
+Nowe funkcje / dopracowanie:
+- Pełna dokumentacja użytkownika + przykłady
+- Stabilność i poprawki z beta
+- Więcej postprocesorów (Fanuc, Yaskawa – opcjonalnie)
+- Lepsze GUI (panele, skróty, UX)
+- Podstawowy driver online (FTP + uruchamianie) – opcjonalnie
+- Testy regresyjne „złotego standardu”
+- Instalator / packaging
+
+Kryterium ukończenia:
+Można polecić program firmie do realnej obróbki robotem
+(przy świadomości ograniczeń).
+
+
+==================================================
+REKOMENDOWANA KOLEJNOŚĆ PRAC (NAJWAŻNIEJSZE)
+==================================================
+
+1. v0.2  → solidna kinematyka i scena
+2. v0.3  → pipeline G-code → program  (to jest prawdziwe MVP)
+3. v0.4  → postprocesor + symulacja
+4. Dopiero potem poważne GUI (v0.5)
+
+Uwaga: GUI przed działającym backendem to najczęstsza pułapka
+w tego typu projektach.
+
+
+==================================================
+DODATKOWE UWAGI Z DYSKUSJI
+==================================================
+
+- Projekt jest realny, ale obecny stan to głównie dobra specyfikacja + szkielet.
+- Największe ryzyko: próba zrobienia wszystkiego naraz.
+- Klucz do sukcesu: brutalna priorytetyzacja i doprowadzenie wąskiego wycinka
+  do stanu „działa i generuje użyteczny kod na prawdziwego robota”.
+- Dual-arm jest wyróżnikiem, ale zewnętrzne osie (szyna + pozycjoner)
+  są praktyczniejsze dla większości firm na początku.
+- Od początku warto dbać o możliwość porównania symulacji z rzeczywistym ruchem.
+
+Koniec planu.
