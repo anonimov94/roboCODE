@@ -3,7 +3,7 @@
 =============================================================================
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
  Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
- Kod: 0.2.0.dev0 | 187 testów | roboCODE.exe (23 343 373 B) przebudowane i sprawdzone (Windows)
+ Kod: 0.2.0.dev0 | 191 testów | roboCODE.exe (23 342 269 B) przebudowane i sprawdzone (Windows)
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
@@ -43,12 +43,12 @@
  |
  ---- MVP wymaga jeszcze walidacji vendor i testu T1; GUI odblokowane czesciowo ----------
  |
- v0.5  USABLE GUI                (CZESCIOWO ODMROZONE) [######----]  65%
+ v0.5  USABLE GUI                (CZESCIOWO ODMROZONE) [########--]  80%
  |  [x] okno, menu/pasek z actions.py, drzewo, widok 3D, F6 przez walidator
  |  [x] panel Projektu obrobki pokazujacy raport walidacji (odswiezany po aktualizacji i eksporcie)
- |  [~]      edycja nazwy/pozy (Undo/Redo), selekcja elementow sceny w 3D; gizmo nadal otwarte
+ |  [x]      edycja nazwy/pozy (Undo/Redo), selekcja 3D, gizmo translacji/obrotu dla ukladow, obiektow i TCP
  |  [x]      animacja symulacji: play/pauza/stop, suwak probek, 1x/5x/20x/100x, pozycja startowa
- |  [~]      podglad osiagalnosci w panelu Projektu obrobki + kolory punktow; gizmo edycji w 3D otwarte
+ |  [x]      podglad osiagalnosci w panelu Projektu obrobki + kolory punktow sciezki
  |
  v0.6  ADVANCED MACHINING                           [###-------]  30%
  |  [x] matematyka kalibracji TCP / ukladu (coop/calibration.py)
@@ -89,7 +89,7 @@
    2. test na robocie T1, zredukowana predkosc
       - blokada: brak robota, sterownika OEM, zatwierdzonej celi i nadzorujacego operatora
    3. limity predkosci/przyspieszen osi z kart katalogowych + uzupelnienie konfiguracji Rear/Down
-   4. GUI v0.5: gizmo edycji w 3D (podglad osiagalnosci raportowany w panelu i widoku sciezki)
+   4. GUI v0.5: dalsze usprawnienia workflow; podglad osiagalnosci i gizmo dostepne offline
    5. kolizje v0.7: geometria mesh/FCL, samokolizje i edytor mapy kolizji
    6. v0.6: orientacja podazajaca za sciezka / remote TCP, makra Python i import krzywych
    7. osie zewnetrzne; potem integracja przeplywu dual-arm i eksport dwoch programow

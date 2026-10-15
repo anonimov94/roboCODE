@@ -82,8 +82,8 @@ ACTIONS: list[Action] = [
     A("view.frames_smaller", "Układy mniejsze", "Frames smaller", "-", "zoom-out", "frames_smaller", milestone="M3"),
     A("view.workspace", "Przestrzeń robocza", "Robot workspace", "*", "globe", "toggle_workspace", True, "M3"),
     A("view.toggle_visible", "Pokaż/ukryj zaznaczone", "Show/hide selected", "F7", "eye", "toggle_visible"),
-    A("view.move_frame", "Przesuń układ (Alt)", "Move frame (Alt)", None, "move", None, True, "M3"),
-    A("view.move_tcp", "Przesuń TCP (Alt+Shift)", "Move TCP (Alt+Shift)", None, "move-3d", None, True, "M3"),
+    A("view.move_frame", "Gizmo układu/obiektu", "Frame/object gizmo", None, "move", "toggle_frame_gizmo", True, "M3"),
+    A("view.move_tcp", "Gizmo TCP", "TCP gizmo", None, "move-3d", "toggle_tcp_gizmo", True, "M3"),
     # Narzędzia
     A("tools.trace", "Ślad TCP", "Trace", None, "route", "toggle_trace", True, "M3"),
     A("tools.collisions", "Sprawdzaj kolizje", "Check collisions", None, "shield-alert",

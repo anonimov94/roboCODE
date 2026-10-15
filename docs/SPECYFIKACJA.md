@@ -316,7 +316,7 @@ deklaracja `$APO`/zone per ruch. **Test tekstowy nie zastępuje walidacji na doc
 | v0.2 | Core | DH 6R, IK + konfiguracje, limity, TCP, układy, cele, MoveJ/L, biblioteka 1–2 robotów | stacja z kodu, naucz cel, MoveL, IK | 🟡 IK analityczne i model nominalny UR5e gotowe; brak katalogowych limitów dynamiki i pełnej listy konfiguracji |
 | v0.3 | MVP Machining | parser NC, toolpath, solver (obrót Z, wybór konfiguracji startowej), najazd/odjazd, CLI | program z G-code otwiera się w oprogramowaniu producenta | 🟡 wybór konfiguracji z listy IK gotowy; brak weryfikacji u producenta |
 | v0.4 | Simulation & Post | symulator z estymacją trapezoidalną czasu cyklu, KRL/RAPID, walidacja MoveL, odchyłka konturu, obciążenie narzędzia, dzielenie programów, **walidator centralny, manifest** | program z v0.3 symulowany, wyeksportowany i wgrany na robota | 🟡 walidator + manifest + golden files + metryka odchyłki + estymacja przyspieszeń + konfigurowalne obciążenie + dzielenie ✅; brak: test na robocie |
-| v0.5 | Usable GUI | panele, viewport, Projekt obróbki w GUI, animacja symulacji, podgląd osiągalności | cały workflow bez CLI | 🟡 raport walidacji i podstawowa oś czasu symulacji gotowe; reszta workflow GUI nadal ograniczona bramką testu T1 |
+| v0.5 | Usable GUI | panele, viewport, Projekt obróbki w GUI, animacja symulacji, podgląd osiągalności, gizmo 3D | cały workflow bez CLI | 🟡 raport, oś czasu, podgląd osiągalności i podstawowe gizmo gotowe; pozostały workflow GUI nadal ograniczony |
 | v0.6 | Advanced Machining | kalibracja TCP/układu, algorytmy orientacji, zdarzenia, CSV, MoveC, makra | kalibracja + dobry program 5-osiowy | 🟡 kalibracje TCP/baz/układu dostępne w CLI i GUI; algorytmy orientacji i makra otwarte |
 | v0.7 | Robustness | kolizje (fcl/trimesh), osie zewnętrzne, mapa kolizji | sprawdzanie kolizji i limitów, pozycjoner | 🟡 proxy kapsuł–prostopadłościan i przełącznik GUI gotowe; brak siatek/FCL, samokolizji i edytora mapy |
 | v0.8 | Dual-Arm | kalibracja baz A↔B, solver podziału ruchu, 2 zsynchronizowane programy | prosty przypadek kooperatywny działa | ⏳ (eksperymentalny kod) |
@@ -336,8 +336,8 @@ M7→v0.8, M8→v1.0, M9→v0.2 (modele robotów).
    według procedur producenta/zakładu: T1, reduced speed, ręczne zezwolenie, krok po kroku i na sucho.
    Symulacja roboCODE nie jest testem T1 ani funkcją bezpieczeństwa.
 3. Uzupełnienie katalogowych limitów prędkości/przyspieszeń osi i konfiguracji IK Rear/Down.
-4. GUI v0.5: gizmo edycji w 3D; podgląd osiągalności jest dostępny w panelu projektu i jako
-   zielone/czerwone punkty ścieżki po obliczeniu projektu.
+4. Dalsze usprawnienia GUI v0.5; podgląd osiągalności i gizmo 3D są dostępne w opisanym,
+   ograniczonym workflow offline.
 5. Pełna kontrola kolizji v0.7: geometria siatkowa/FCL, samokolizje i edytor mapy kolizji.
 6. v0.6: orientacja podążająca za ścieżką, remote TCP, makra Python i import krzywych geometrii.
 7. Osie zewnętrzne; następnie kalibracja A↔B w przepływie dual-arm i dwa zsynchronizowane programy.
@@ -349,7 +349,8 @@ sterowanie robotem:
   a suwak, pauza i Stop pozwalają sterować podglądem. Nie jest to reprezentacja rzeczywistego czasu
   cyklu ani test T1.
 - Przełącznik kolizji obejmuje tylko przybliżone proxy opisane w §6.7.
-- Pozostały workflow GUI, w tym edycja gizmem i podgląd osiągalności, nadal jest otwarty.
+- Gizmo translacji/obrotu dla układów, obiektów, celów, krzywych i TCP jest dostępne offline;
+  pozostałe funkcje workflow GUI nadal są otwarte.
 
 ---
 
@@ -372,7 +373,7 @@ sterowanie robotem:
 | Post ABB RAPID | post.abb_rapid | test_review_fixes, test_post_golden, read-back 42 pozy | 🟡 eksport i read-back lokalny OK; RobotStudio nieobecny, składnia niezweryfikowana kompilatorem vendor |
 | Mapowanie zdarzeń na I/O | post.base | test_review_fixes | ✅ gotowe |
 | Przybliżone kolizje kapsuła–prostopadłościan w próbkach trajektorii | collision.checker, program.simulator, pipeline | test_collision | 🟡 ostrzeżenia i API mapy par; GUI ma przełącznik kontroli w symulacji i eksporcie; bez edytora mapy, mesh/FCL, samokolizji i geometrii OEM |
-| GUI (menu, drzewo, 3D, F6 przez walidator, raport i podgląd osiągalności projektu) | gui | test_gui_spec, test_render | 🟡 podgląd osiągalności po obliczeniu projektu; edycja gizmem i pozostały workflow otwarte |
+| GUI (menu, drzewo, 3D, F6 przez walidator, raport, osiągalność i gizmo translacji/obrotu) | gui | test_gui_spec, test_render | 🟡 osiągalność po obliczeniu projektu; gizmo układów/obiektów/celi i TCP; workflow produkcyjny otwarty |
 | Selekcja elementów sceny z widoku 3D | gui.viewport, gui.render | test_gui_spec, test_render | ✅ kliknięcie pickowalnej geometrii synchronizuje zaznaczenie drzewa i panel właściwości |
 | Edycja nazwy i pozy elementu sceny w GUI | gui.handlers, gui.main_window | test_gui_spec | ✅ panel/aktywacja dwuklikiem; jedna komenda Undo/Redo, walidacja pozy i unieważnianie wyniku CAM |
 | Panel Projektu obróbki z raportem walidacji | gui.main_window, gui.handlers | test_gui_spec (w tym Qt offscreen) | ✅ tab dokowany obok właściwości; pokazuje pełne podsumowanie, lokalizacje NC, próbki, czas i ostrzeżenia; odświeżany po obliczeniu/eksporcie |
@@ -619,8 +620,10 @@ GUI bez uruchamiania Qt.
 - Kliknięcie pickowalnej geometrii elementu w widoku 3D zaznacza go w drzewie i panelu właściwości.
   Zaznaczanie wspiera obecnie pojedynczy element; podłoga, ścieżki/overlay i elementy liniowe nie są
   wybierane. Zaznaczenie w drzewie działa również bez dostępnego renderera 3D.
-- Dwuklik elementu drzewa otwiera edytor nazwy i pozy. Gizmo do przesuwania/obracania w widoku 3D
-  nadal pozostaje do wdrożenia.
+- Dwuklik elementu drzewa otwiera edytor nazwy i pozy. Akcje „Gizmo układu/obiektu” i „Gizmo TCP”
+  pokazują interaktywny uchwyt translacji i obrotu po wybraniu obsługiwanego elementu. Zmiana
+  zatwierdza jedną operację Undo/Redo i unieważnia wynik projektu obróbki. Gizmo nie działa w trakcie
+  odtwarzania symulacji; bez zgodnej wersji PyVista GUI informuje o wymaganiu.
 - Oś czasu symulacji udostępnia play/pauzę, Stop, suwak próbek, licznik bieżącej próbki i wybór
   prędkości 1×/5×/20×/100× (domyślnie 5×); akcja „Szybka symulacja” ustawia 100×, a wyłączenie
   wraca do 5×. Sterowanie jest aktywne po udanej symulacji;
@@ -664,6 +667,9 @@ Tryby nawigacji do wyboru w Opcjach (zgodne z popularnymi CAD).
   układu/narzędzia, wejście ścieżki, zdarzenia,
   najazd/odjazd (Dodaj/Usuń), path-to-tool offset z podglądem i kółkiem myszy, algorytm,
   optymalizacja (±kąt, krok), konfiguracja startowa, przyciski Aktualizuj/Symuluj, status ✓/✗.
+- **Gizmo 3D**: włącz akcję układu/obiektu i zaznacz układ, obiekt, cel lub krzywą; dla TCP włącz
+  osobną akcję i zaznacz narzędzie w drzewie. Translacja i obrót zapisują się jako jedna operacja
+  Undo/Redo. Narzędzie jest przeliczane względem kołnierza lub nadrzędnego TCP.
 - **Opcje**: Ogólne, Wyświetlanie, Ruch (prędkości symulacji), Program (dzielenie, łuki, inline,
   folder), CAM (domyślne zdarzenia, najazd), CAD (dokładność importu), Python.
 

@@ -122,8 +122,18 @@ def build_window(state: AppState | None = None):
         if widget is not None:
             tree.setCurrentItem(widget)
 
-    tree.itemSelectionChanged.connect(on_select)
+    def on_selection_changed():
+        on_select()
+        view.refresh(state)
+
+    def on_gizmo_transform(item_id: int, world_pose):
+        message = dispatch(state, "transform_item_world", item_id, world_pose)
+        win.statusBar().showMessage(message, 8000)
+        refresh_all()
+
+    tree.itemSelectionChanged.connect(on_selection_changed)
     view.set_selection_callback(on_viewport_pick)
+    view.set_transform_callback(on_gizmo_transform)
 
     simulation_timer = QTimer(win)
     simulation_timer.setInterval(50)
@@ -267,6 +277,11 @@ def build_window(state: AppState | None = None):
             simulation_speed_combo.setCurrentIndex(3 if state.fast_sim else 1)
         elif cmd == "toggle_collisions":
             qactions["tools.collisions"].setChecked(state.collisions_enabled)
+        elif cmd in {"toggle_frame_gizmo", "toggle_tcp_gizmo"}:
+            qactions["view.move_frame"].setChecked(state.gizmo_mode == "frame")
+            qactions["view.move_tcp"].setChecked(state.gizmo_mode == "tcp")
+            if state.gizmo_mode and not view.supports_transform_gizmo:
+                msg = "Gizmo wymaga nowszej wersji PyVista z obsługą transformacji 3D"
         win.statusBar().showMessage(msg, 8000)
         refresh_all()
         if cmd in {"open_demo", "new_machining_project", "update_machining",
@@ -320,6 +335,10 @@ def build_window(state: AppState | None = None):
         qa.setCheckable(a.checkable)
         if a.id == "tools.collisions":
             qa.setChecked(state.collisions_enabled)
+        elif a.id == "view.move_frame":
+            qa.setChecked(state.gizmo_mode == "frame")
+        elif a.id == "view.move_tcp":
+            qa.setChecked(state.gizmo_mode == "tcp")
         tip = f"{a.label_pl} ({a.shortcut})" if a.shortcut else a.label_pl
         if a.command is None:
             qa.setEnabled(False)

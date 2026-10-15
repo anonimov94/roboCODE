@@ -35,6 +35,7 @@ class AppState:
     simulation_start_joints: np.ndarray | None = None
     simulation_index: int = 0
     simulation_playing: bool = False
+    gizmo_mode: str | None = None
     last_report: object = None  # ValidationReport z ostatniego eksportu (F6)
     pending_calibration: tuple[Item, np.ndarray, str] | None = None
 
@@ -208,6 +209,48 @@ def edit_item_properties(s: AppState, name: str, pose) -> str:
     ))
     _invalidate_machining_result(s)
     return f"Zaktualizowano {name}; wynik projektu obróbki unieważniony"
+
+
+def toggle_frame_gizmo(s: AppState) -> str:
+    s.gizmo_mode = None if s.gizmo_mode == "frame" else "frame"
+    return "Gizmo układów włączone" if s.gizmo_mode else "Gizmo wyłączone"
+
+
+def toggle_tcp_gizmo(s: AppState) -> str:
+    s.gizmo_mode = None if s.gizmo_mode == "tcp" else "tcp"
+    return "Gizmo TCP włączone" if s.gizmo_mode else "Gizmo wyłączone"
+
+
+def transform_item_world(s: AppState, item_id: int, world_pose) -> str:
+    item = next((candidate for candidate in s.station.walk() if candidate.id == item_id), None)
+    if item is None:
+        return "Element gizmo nie należy do bieżącej stacji"
+
+    if s.gizmo_mode == "frame" and item.kind in {"frame", "object", "target", "curve"}:
+        parent_world = item.parent.pose_abs() if item.parent is not None else P.eye()
+    elif s.gizmo_mode == "tcp" and isinstance(item, Tool):
+        robot = item.parent
+        while robot is not None and not isinstance(robot, Robot):
+            robot = robot.parent
+        if robot is None:
+            return "Narzędzie nie jest przypisane do robota"
+        parent_tcp = item.parent.tcp() if isinstance(item.parent, Tool) else P.eye()
+        parent_world = robot.flange_abs() @ parent_tcp
+    else:
+        return "Wybierz układ/obiekt albo narzędzie w odpowiednim trybie gizmo"
+
+    try:
+        new_world = np.asarray(world_pose, dtype=float)
+    except (TypeError, ValueError):
+        return "Gizmo zwróciło nieprawidłową pozę"
+    if not P.is_valid_pose(new_world):
+        return "Gizmo zwróciło nieprawidłową pozę"
+    new_local = P.inv(parent_world) @ new_world
+    if np.allclose(item.pose, new_local, atol=1e-9):
+        return "Poza bez zmian"
+    s.undo.push(C.set_attr(item, "pose", new_local, f"Przesuń: {item.name}"))
+    _invalidate_machining_result(s)
+    return f"Zmieniono położenie: {item.name}"
 
 
 def generate_program(s: AppState, folder: str = "programs") -> str:
@@ -537,6 +580,8 @@ HANDLERS = {
     "teach_target": teach_target, "add_program": add_program, "add_movej": add_movej, "add_movel": add_movel,
     "rename_selected": rename_selected, "toggle_visible": toggle_visible, "generate_program": generate_program,
     "edit_item_properties": edit_item_properties,
+    "toggle_frame_gizmo": toggle_frame_gizmo, "toggle_tcp_gizmo": toggle_tcp_gizmo,
+    "transform_item_world": transform_item_world,
     "toggle_fast_sim": toggle_fast_sim, "toggle_collisions": toggle_collisions,
     "view_iso": _view("iso"), "view_top": _view("top"), "view_front": _view("front"), "view_side": _view("side"),
     "view_fit": _view("fit"), "view_path": _view("path"), "frames_bigger": frames_bigger,

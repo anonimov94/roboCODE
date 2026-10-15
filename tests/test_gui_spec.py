@@ -67,6 +67,44 @@ def test_reachability_summary_reports_all_and_unreachable_samples():
     assert "czerwone punkty" in summary
 
 
+def test_transform_gizmo_moves_items_with_undo_and_redo():
+    state = AppState()
+    state.station, robot, frame, tool = build_demo_station()
+    old_frame_pose = frame.pose.copy()
+    frame_world = frame.pose_abs()
+    frame_world[:3, 3] += [25.0, -10.0, 5.0]
+
+    assert "włączone" in dispatch(state, "toggle_frame_gizmo")
+    assert "Zmieniono położenie" in dispatch(state, "transform_item_world", frame.id, frame_world)
+    assert np.allclose(frame.pose[:3, 3], old_frame_pose[:3, 3] + [25.0, -10.0, 5.0])
+    assert dispatch(state, "undo") == "Cofnięto"
+    assert np.allclose(frame.pose, old_frame_pose)
+    assert dispatch(state, "redo") == "Ponowiono"
+    assert np.allclose(frame.pose[:3, 3], old_frame_pose[:3, 3] + [25.0, -10.0, 5.0])
+
+    assert "włączone" in dispatch(state, "toggle_tcp_gizmo")
+    old_tcp_pose = tool.pose.copy()
+    tcp_world = robot.flange_abs() @ tool.tcp()
+    tcp_world[:3, 3] += [0.0, 15.0, -8.0]
+    assert "Zmieniono położenie" in dispatch(state, "transform_item_world", tool.id, tcp_world)
+    assert np.allclose(robot.flange_abs() @ tool.tcp(), tcp_world)
+    assert dispatch(state, "undo") == "Cofnięto"
+    assert np.allclose(tool.pose, old_tcp_pose)
+
+
+def test_transform_gizmo_rejects_invalid_pose_and_wrong_mode():
+    state = AppState()
+    state.station, _, frame, tool = build_demo_station()
+    world_pose = frame.pose_abs()
+
+    assert "odpowiednim trybie" in dispatch(state, "transform_item_world", frame.id, world_pose)
+    dispatch(state, "toggle_frame_gizmo")
+    invalid_pose = world_pose.copy()
+    invalid_pose[0, 0] = 2
+    assert "nieprawidłową pozę" in dispatch(state, "transform_item_world", frame.id, invalid_pose)
+    assert "odpowiednim trybie" in dispatch(state, "transform_item_world", tool.id, world_pose)
+
+
 def test_gui_collision_toggle_controls_simulation_checker(monkeypatch):
     from robocode.program import simulator
 
@@ -337,6 +375,31 @@ def test_main_window_displays_machining_validation_report(monkeypatch):
         assert "wszystkie osiągalne" in window.machining_reachability_label.text()
         assert "COLLISION_NOT_CHECKED" in window.machining_report_panel.toPlainText()
         assert window.machining_report_dock.windowTitle() == "Projekt obróbki"
+    finally:
+        window.viewport.close()
+        window.close()
+        app.quit()
+
+
+def test_main_window_shows_transform_gizmo_for_selected_frame(monkeypatch):
+    import pytest
+
+    pytest.importorskip("PySide6")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from robocode.gui.main_window import build_window
+
+    state = AppState()
+    state.station, _, frame, _ = build_demo_station()
+    app, window = build_window(state)
+    try:
+        window.station_tree.setCurrentItem(window.station_item_widgets[frame.id])
+        window.qactions["view.move_frame"].trigger()
+        assert state.gizmo_mode == "frame"
+        if window.viewport.supports_transform_gizmo:
+            assert window.viewport._transform_widget is not None
+        window.qactions["view.move_frame"].trigger()
+        assert state.gizmo_mode is None
+        assert window.viewport._transform_widget is None
     finally:
         window.viewport.close()
         window.close()
