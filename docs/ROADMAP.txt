@@ -3,7 +3,7 @@
 =============================================================================
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
  Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
- Kod: 0.2.0.dev0 | 195 testów | roboCODE.exe (23 342 269 B) przebudowane i sprawdzone (Windows)
+ Kod: 0.2.0.dev0 | 195 testów | roboCODE.exe (23 351 525 B) przebudowane i sprawdzone (Windows)
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
@@ -74,7 +74,7 @@
 =============================================================================
  NARZEDZIA I INFRASTRUKTURA
    [x] raport HTML z manifestu          [x] przykladowe programy NC
-   [x] launcher + roboCODE.exe (build 2026-10-15; smoke CLI: help, demo KUKA/ABB, blokada blednego NC)
+   [x] launcher + roboCODE.exe (build 2026-10-15 19:01; help i demo KUKA/ABB smoke-tested)
    [x] test_exe.bat (12/12 OK, poprzedni test)
    [x] konfiguracje PyCharm (.run)      [x] plik CI (GitHub Actions)
    [x] workflow CI w .github/workflows/ci.yml
