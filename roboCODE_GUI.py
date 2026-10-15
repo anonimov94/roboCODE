@@ -13,6 +13,10 @@ from pathlib import Path
 
 os.environ.setdefault("QT_API", "pyside6")  # pyvistaqt -> qtpy: zawsze PySide6 z paczki exe
 
+from robocode.gui.qt_compat import patch_shiboken_import_hook
+
+patch_shiboken_import_hook()
+
 
 def _base_dir() -> Path:
     if getattr(sys, "frozen", False):

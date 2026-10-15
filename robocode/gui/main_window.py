@@ -35,6 +35,8 @@ def _reachability_text(project) -> str:
 
 
 def build_window(state: AppState | None = None):
+    from .qt_compat import patch_shiboken_import_hook
+    patch_shiboken_import_hook()
     from PySide6.QtCore import Qt, QTimer
     from PySide6.QtGui import QAction, QKeySequence
     from PySide6.QtWidgets import (

@@ -127,7 +127,7 @@ def gui_exe() -> Path | None:
 def _venv_has_gui(py: Path) -> bool:
     import subprocess
     check = subprocess.run([str(py), "-c", "import PySide6, pyvistaqt, robocode"], cwd=base_dir(),
-                           capture_output=True, timeout=120)
+                           capture_output=True, timeout=120, check=False)
     return check.returncode == 0
 
 
@@ -137,7 +137,7 @@ def _install_gui_into_venv(py: Path) -> bool:
     if not (base_dir() / "pyproject.toml").is_file():
         return False
     print("Instaluję biblioteki GUI (PySide6, pyvista) – jednorazowo, może potrwać kilka minut…")
-    r = subprocess.run([str(py), "-m", "pip", "install", "-e", ".[gui]"], cwd=base_dir())
+    r = subprocess.run([str(py), "-m", "pip", "install", "-e", ".[gui]"], cwd=base_dir(), check=False)
     return r.returncode == 0
 
 
