@@ -11,11 +11,17 @@ KIND_PL = {"station": "stacja", "robot": "robot", "tool": "narzędzie", "frame":
            "target": "cel", "program": "program", "curve": "krzywa", "item": "element"}
 
 
+def _report_text(report) -> str:
+    if report is None:
+        return "Brak raportu walidacji. Otwórz projekt obróbki lub wygeneruj program (F6)."
+    return report.summary(max_items=max(20, len(report.issues)))
+
+
 def build_window(state: AppState | None = None):
     from PySide6.QtCore import Qt
     from PySide6.QtGui import QAction, QKeySequence
     from PySide6.QtWidgets import (QApplication, QDockWidget, QFileDialog, QLabel, QMainWindow, QToolBar,
-                                   QTreeWidget, QTreeWidgetItem)
+                                   QMessageBox, QTextBrowser, QTreeWidget, QTreeWidgetItem)
 
     from .viewport import Viewport
 
@@ -63,6 +69,7 @@ def build_window(state: AppState | None = None):
     def refresh_all(first: bool = False):
         refresh_tree()
         view.refresh(state, keep_camera=not first and state.view_request is None)
+        machining_report.setPlainText(_report_text(state.last_report))
         if state.view_request:
             view.apply_view("iso" if state.view_request == "fit" else state.view_request, state)
             state.view_request = None
@@ -78,10 +85,26 @@ def build_window(state: AppState | None = None):
             args = [fn]
         try:
             msg = dispatch(state, cmd, *args)
+            if state.pending_calibration is not None:
+                _, _, details = state.pending_calibration
+                answer = QMessageBox.question(
+                    win, "Zastosować kalibrację?",
+                    f"{details}\n\nZastosować wynik do stacji? Zmiana będzie dostępna w Cofnij.",
+                    QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
+                )
+                if answer == QMessageBox.Yes:
+                    msg = dispatch(state, "apply_pending_calibration")
+                else:
+                    from .handlers import cancel_pending_calibration
+                    cancel_pending_calibration(state)
+                    msg = "Kalibracja obliczona, zmiany nie zastosowano"
         except Exception as e:  # błąd nie może zabić GUI
             msg = f"Błąd: {e}"
         win.statusBar().showMessage(msg, 8000)
         refresh_all()
+        if cmd in {"open_demo", "new_machining_project", "update_machining",
+                   "generate_program", "generate_program_as"}:
+            report_dock.raise_()
 
     qactions = {}
     for a in ACT.ACTIONS:
@@ -120,6 +143,17 @@ def build_window(state: AppState | None = None):
     pdock = QDockWidget("Właściwości", win)
     pdock.setWidget(props)
     win.addDockWidget(Qt.RightDockWidgetArea, pdock)
+    machining_report = QTextBrowser()
+    machining_report.setObjectName("machining_validation_report")
+    machining_report.setOpenExternalLinks(False)
+    machining_report.setPlainText("Brak raportu walidacji.")
+    report_dock = QDockWidget("Projekt obróbki", win)
+    report_dock.setObjectName("machining_project_dock")
+    report_dock.setWidget(machining_report)
+    win.addDockWidget(Qt.RightDockWidgetArea, report_dock)
+    win.tabifyDockWidget(pdock, report_dock)
+    win.machining_report_panel = machining_report
+    win.machining_report_dock = report_dock
 
     win.statusBar().showMessage("Gotowy. Plik → Otwórz demo obróbki, albo Ctrl+M z własnym plikiem NC.")
     refresh_all(first=True)

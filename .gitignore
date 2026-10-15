@@ -5,3 +5,8 @@ out/
 programs/
 *.egg-info/
 .venv/
+build/
+dist/
+*.spec
+roboCODE.exe
+przyklady_nc/

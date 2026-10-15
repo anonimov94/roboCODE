@@ -1,6 +1,12 @@
+import json
+
+import numpy as np
+
 from robocode.gui import actions as A
-from robocode.gui.handlers import AppState, dispatch
+from robocode.gui.handlers import AppState, cancel_pending_calibration, dispatch
 from robocode.demo import build_demo_station
+from robocode.gui.main_window import _report_text
+from robocode.core import pose as P
 
 
 def test_gui_definition_consistent():
@@ -12,6 +18,8 @@ def test_required_shortcuts_present():
     for s in ["F1", "F2", "F6", "Shift+F6", "Ctrl+F6", "F7", "Alt+0", "Ctrl+1", "Ctrl+T", "Ctrl+Shift+T",
               "Ctrl+M", "Ctrl+Z", "Ctrl+Y", "Space", "Backspace", "Esc"]:
         assert s in sc, s
+    assert A.BY_ID["cnc.calib_tcp"].command == "calibrate_tcp_gui"
+    assert A.BY_ID["cnc.calib_frame"].command == "calibrate_frame_gui"
 
 
 def test_handlers_flow(tmp_path):
@@ -23,6 +31,196 @@ def test_handlers_flow(tmp_path):
     dispatch(s, "add_movej")
     dispatch(s, "add_movel")
     msg = dispatch(s, "generate_program", str(tmp_path))
-    assert "Wygenerowano" in msg
+    assert "Zapisano" in msg and (tmp_path / "Prog1.manifest.json").exists()
     assert "niezaimplementowana" in dispatch(s, None)
     assert "Zapisano" in dispatch(s, "save_station_as", str(tmp_path / "x.rcs.json"))
+
+
+def test_machining_project_updates_validation_report_and_panel_text():
+    state = AppState()
+    assert "Demo obróbki" in dispatch(state, "open_demo")
+    report = state.last_report
+    assert report is not None and report.ok
+    text = _report_text(report)
+    assert "Walidacja: OK" in text
+    assert "PARSER" in text
+    assert "COLLISION_NOT_CHECKED" in text
+    assert "czas cyklu" in text
+
+    assert "Program gotowy" in dispatch(state, "update_machining")
+    assert state.last_report is not report
+    assert "próbek trajektorii" in _report_text(state.last_report)
+    assert "Brak raportu walidacji" in _report_text(None)
+
+
+def test_changing_station_clears_stale_machining_report():
+    state = AppState()
+    dispatch(state, "open_demo")
+    assert state.project is not None and state.last_report is not None
+
+    dispatch(state, "new_station")
+
+    assert state.project is None and state.last_report is None and state.overlay is None
+
+
+def test_invalid_machining_input_is_shown_as_validation_error(tmp_path):
+    nc = tmp_path / "invalid.nc"
+    nc.write_text("G21\nG41 D1\n", encoding="utf-8")
+    state = AppState()
+
+    assert "Plik NC" in dispatch(state, "new_machining_project", str(nc))
+    assert state.last_report is not None and not state.last_report.ok
+    text = _report_text(state.last_report)
+    assert "NC_PARSE" in text
+    assert "BŁĘDY" in text
+
+
+def test_main_window_displays_machining_validation_report(monkeypatch):
+    import pytest
+
+    import json
+
+    pytest.importorskip("PySide6")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from robocode.gui.main_window import build_window
+
+    state = AppState()
+    app, window = build_window(state)
+    try:
+        dispatch(state, "open_demo")
+        window.refresh_all()
+        assert window.machining_report_panel.toPlainText() == _report_text(state.last_report)
+        assert "COLLISION_NOT_CHECKED" in window.machining_report_panel.toPlainText()
+        assert window.machining_report_dock.windowTitle() == "Projekt obróbki"
+    finally:
+        window.viewport.close()
+        window.close()
+        app.quit()
+
+
+def test_gui_calibration_action_confirms_and_applies_result(monkeypatch, tmp_path):
+    import pytest
+
+    pytest.importorskip("PySide6")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QFileDialog, QMessageBox
+    from robocode.gui.main_window import build_window
+
+    state = AppState()
+    state.station, robot, frame, _ = build_demo_station()
+    expected = P.transl(100, 200, 300)
+    source = tmp_path / "frame.json"
+    source.write_text(json.dumps({
+        "origin": [100, 200, 300], "x_point": [110, 200, 300], "xy_point": [103, 205, 300],
+    }), encoding="utf-8")
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(source), "JSON"))
+    questions = []
+
+    def confirm(*args):
+        questions.append(args[2])
+        return QMessageBox.Yes
+
+    monkeypatch.setattr(QMessageBox, "question", confirm)
+    app, window = build_window(state)
+    try:
+        window.qactions["cnc.calib_frame"].trigger()
+        assert len(questions) == 1 and "Układ Detal" in questions[0]
+        assert np.allclose(robot.frame_rel_base(frame), expected)
+        assert "Zastosowano" in window.statusBar().currentMessage()
+        assert dispatch(state, "undo") == "Cofnięto"
+        assert not np.allclose(robot.frame_rel_base(frame), expected)
+    finally:
+        window.viewport.close()
+        window.close()
+        app.quit()
+
+
+def test_gui_tcp_calibration_requires_confirmation_and_supports_undo(tmp_path):
+    state = AppState()
+    state.station, robot, _, tool = build_demo_station()
+    tcp = np.array([5.0, -3.0, 120.0])
+    point = np.array([600.0, 50.0, 200.0])
+    poses = []
+    for angles in ((0, 0), (20, 0), (0, 25), (-15, 10)):
+        flange = P.rotx(angles[0]) @ P.roty(angles[1])
+        flange[:3, 3] = point - flange[:3, :3] @ tcp
+        poses.append(flange.tolist())
+    source = tmp_path / "tcp.json"
+    source.write_text(json.dumps({"flange_poses": poses}), encoding="utf-8")
+    old_pose = tool.pose.copy()
+
+    message = dispatch(state, "calibrate_tcp_gui", str(source))
+    assert "RMS" in message and state.pending_calibration is not None
+    assert np.allclose(tool.pose, old_pose)
+
+    message = dispatch(state, "apply_pending_calibration")
+    assert "Zastosowano" in message
+    assert np.allclose(tool.pose[:3, 3], tcp)
+    assert dispatch(state, "undo") == "Cofnięto"
+    assert np.allclose(tool.pose, old_pose)
+    assert dispatch(state, "redo") == "Ponowiono"
+    assert np.allclose(tool.pose[:3, 3], tcp)
+
+
+def test_gui_frame_calibration_updates_relative_pose_and_is_undoable(tmp_path):
+    state = AppState()
+    state.station, robot, frame, _ = build_demo_station()
+    robot.pose = P.transl(100, 0, 0)
+    frame_in_base = P.transl(500, 200, 300) @ P.rotz(90)
+    source = tmp_path / "frame.json"
+    source.write_text(json.dumps({
+        "origin": frame_in_base[:3, 3].tolist(),
+        "x_point": (frame_in_base[:3, 3] + frame_in_base[:3, 0] * 100).tolist(),
+        "xy_point": (frame_in_base[:3, 3] + frame_in_base[:3, 0] * 30
+                     + frame_in_base[:3, 1] * 50).tolist(),
+    }), encoding="utf-8")
+    old_pose = frame.pose.copy()
+
+    assert "3 punktów" in dispatch(state, "calibrate_frame_gui", str(source))
+    assert dispatch(state, "apply_pending_calibration").startswith("Zastosowano")
+    assert np.allclose(robot.frame_rel_base(frame), frame_in_base)
+    assert dispatch(state, "undo") == "Cofnięto"
+    assert np.allclose(frame.pose, old_pose)
+    assert dispatch(state, "redo") == "Ponowiono"
+    assert np.allclose(robot.frame_rel_base(frame), frame_in_base)
+
+
+def test_gui_frame_calibration_supports_corresponding_point_sets(tmp_path):
+    state = AppState()
+    state.station, robot, frame, _ = build_demo_station()
+    transform = P.transl(150, 20, 30) @ P.rotz(45)
+    points_b = np.array([[0, 0, 0], [100, 0, 0], [0, 100, 0], [0, 0, 100]], dtype=float)
+    points_a = (transform[:3, :3] @ points_b.T).T + transform[:3, 3]
+    source = tmp_path / "bases.json"
+    source.write_text(json.dumps({
+        "points_in_A": points_a.tolist(), "points_in_B": points_b.tolist(),
+    }), encoding="utf-8")
+
+    assert "RMS" in dispatch(state, "calibrate_frame_gui", str(source))
+    assert dispatch(state, "apply_pending_calibration").startswith("Zastosowano")
+    assert np.allclose(robot.frame_rel_base(frame), transform, atol=1e-9)
+
+
+def test_gui_calibration_rejects_invalid_input_and_cancel_is_non_mutating(tmp_path):
+    state = AppState()
+    state.station, _, frame, tool = build_demo_station()
+    old_pose = tool.pose.copy()
+    source = tmp_path / "bad.json"
+    source.write_text(json.dumps({"flange_poses": [[[1, 0], [0, 1]]]}), encoding="utf-8")
+
+    assert dispatch(state, "calibrate_tcp_gui", str(source)).startswith("✗")
+    assert state.pending_calibration is None
+    source.write_text(json.dumps({
+        "origin": [0, 0, 0], "x_point": [1, 0, 0], "xy_point": [2, 0, 0],
+    }), encoding="utf-8")
+    assert dispatch(state, "calibrate_frame_gui", str(source)).startswith("✗")
+    assert state.pending_calibration is None
+
+    old_frame_pose = frame.pose.copy()
+    source.write_text(json.dumps({
+        "origin": [10, 20, 30], "x_point": [20, 20, 30], "xy_point": [13, 25, 30],
+    }), encoding="utf-8")
+    assert "3 punktów" in dispatch(state, "calibrate_frame_gui", str(source))
+    cancel_pending_calibration(state)
+    assert np.allclose(tool.pose, old_pose)
+    assert np.allclose(frame.pose, old_frame_pose)

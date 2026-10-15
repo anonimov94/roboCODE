@@ -1,0 +1,53 @@
+{
+  "name": "Universal Robots UR5e (nominal ROS-Industrial)",
+  "source": "https://github.com/ros-industrial/universal_robot/tree/39ad110d8f2e8f66856a201cca88aa7a7025e3eb/ur_description (urdf/inc/ur_macro.xacro, config/ur5e/default_kinematics.yaml, config/ur5e/joint_limits.yaml)",
+  "license": "BSD-3-Clause (ROS-Industrial universal_robot; see upstream universal_robots/LICENSE)",
+  "dh": [
+    {
+      "a": 0.0,
+      "alpha": 90.0,
+      "d": 162.5,
+      "theta_offset": 0.0
+    },
+    {
+      "a": -425.0,
+      "alpha": 0.0,
+      "d": 0.0,
+      "theta_offset": 0.0
+    },
+    {
+      "a": -392.2,
+      "alpha": 0.0,
+      "d": 0.0,
+      "theta_offset": 0.0
+    },
+    {
+      "a": 0.0,
+      "alpha": 90.0,
+      "d": 133.3,
+      "theta_offset": 0.0
+    },
+    {
+      "a": 0.0,
+      "alpha": -90.0,
+      "d": 99.7,
+      "theta_offset": 0.0
+    },
+    {
+      "a": 0.0,
+      "alpha": 0.0,
+      "d": 99.6,
+      "theta_offset": 0.0
+    }
+  ],
+  "limits_deg": [
+    [-360.0, 360.0],
+    [-360.0, 360.0],
+    [-180.0, 180.0],
+    [-360.0, 360.0],
+    [-360.0, 360.0],
+    [-360.0, 360.0]
+  ],
+  "joint_sign": [1, 1, 1, 1, 1, 1],
+  "vmax_deg_s": [180.0, 180.0, 180.0, 180.0, 180.0, 180.0]
+}

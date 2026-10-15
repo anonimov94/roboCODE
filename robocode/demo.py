@@ -1,6 +1,17 @@
 """Gotowa stacja demonstracyjna + projekt obróbki (używane przez CLI, GUI i testy)."""
 from __future__ import annotations
 
+if __name__ == "__main__" and not __package__:
+    # Run directly as a file (e.g. PyCharm "Run demo.py"): re-launch as the package CLI `robocode demo`.
+    import pathlib as _pl
+    import sys as _sys
+    _sys.path.insert(0, str(_pl.Path(__file__).resolve().parents[1]))
+    from robocode.cli import main as _main
+    _args = _sys.argv[1:]
+    if "--out" not in _args:  # write next to the project, not into robocode/ when cwd is the package folder
+        _args += ["--out", str(_pl.Path(__file__).resolve().parents[1] / "out")]
+    raise SystemExit(_main(["demo", *_args]))
+
 from dataclasses import dataclass
 
 import numpy as np
@@ -60,8 +71,11 @@ class MachiningProject:
 
     def overlay(self, trace=None):
         from .gui.render import Overlay
-        tp = self.toolpath.with_approach_retract(self.settings.approach_mm) \
-            if self.settings.approach_mm > 0 else self.toolpath
+        if self.result is not None and self.result.toolpath is not None:
+            tp = self.result.toolpath  # exactly the points the solver used (lengths match `reachable`)
+        else:
+            tp = self.toolpath.with_approach_retract(self.settings.approach_mm) \
+                if self.settings.approach_mm > 0 else self.toolpath
         F = self.frame.pose_abs()
         pts = np.array([(F @ np.append(pp.p, 1))[:3] for pp in tp.points])
         nrm = np.array([F[:3, :3] @ pp.n for pp in tp.points])

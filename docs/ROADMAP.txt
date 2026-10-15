@@ -1,0 +1,89 @@
+=============================================================================
+ roboCODE  -  ROADMAP / TODO                        stan na: 2026-10-15 (czw)
+=============================================================================
+ Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
+ Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
+ Kod: 0.2.0.dev0 | 177 testów | roboCODE.exe przebudowane i sprawdzone (Windows)
+=============================================================================
+
+ v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
+ |  [x] struktura pakietu, pozy 4x4, Euler / kwaterniony, Kabsch
+ |  [x] scena (drzewo stacji) + undo/redo + zapis .rcs.json
+ |  [x] CLI, pytest
+ |
+ v0.2  CORE - kinematyka i stacja                   [#########-]  90%
+ |  [x] model DH 6R: FK, Jakobian, manipulowalnosc
+ |  [x] IK numeryczne z jawnym statusem (ok / brak zbieznosci / limity)
+ |  [~] lista konfiguracji (nadgarstek, obroty +-360) - gubi Rear/Down
+ |  [x] biblioteka robotow .robot.json (pola source + license)
+ |  [x] IK analityczne 6R (nadgarstek sferyczny) + test 8 konfiguracji
+ |  [x] model UR5e z ROS-Industrial URDF -> .robot.json (nominalny)
+ |  [ ]      limity predkosci/przyspieszen osi z karty katalogowej
+ |
+ v0.3  MVP MACHINING - G-code -> program robota     [#########-]  90%
+ |  [x] parser NC ze stanem modalnym (G0-G4, G17-19, G20/21, G90/91,
+ |      luki IJK/R, glowica A/B, wektor IJK), tryb scisly z nr linii
+ |  [x] solver: obrot wokol Z, najazd/odjazd, zageszczanie orientacji
+ |  [x] CLI: demo / machine / samples / report
+ |  [ ] >>1  wczytanie programu w WorkVisual (KUKA) i RobotStudio (ABB) - blokada: brak tych narzedzi w srodowisku
+ |  [x]      wybor konfiguracji startowej z listy rozwiazan IK (CLI/API)
+ |
+ v0.4  SIMULATION & POST                            [#########-]  95%
+ |  [x] symulacja calej trajektorii (MoveJ, MoveL, MoveC jako luk)
+ |  [x] centralny walidator + blokada eksportu przy bledach
+ |  [x] odczyt zwrotny KRL/RAPID (pozy + osie), manifest, zapis atomowy
+ |  [x] posty KUKA KRL / ABB RAPID, mapowanie zdarzen na I/O (--events)
+ |  [x] poprawki z przegladu ChatGPT / Gemini / Grok (SPECYFIKACJA 13.2)
+ |  [x] golden files - wzorcowe pliki KRL i RAPID w testach
+ |  [x] odchylka konturu: FK TCP vs zadana sciezka MoveL/MoveC [mm]
+ |  [x]      estymacja czasu cyklu z profilami trapezowymi (przyspieszenia osiowe i liniowe)
+ |  [x]      konfigurowalne dane obciazenia narzedzia (ABB tooldata, KUKA; API/CLI --tool-load)
+ |  [x]      dzielenie dlugich programow (limit CLI/API, zachowanie stanu modalnego, manifest)
+ |  [ ] >>4  pierwszy test na prawdziwym robocie (T1, zredukowana predkosc) - zablokowany: brak sterownika OEM, robota i konfiguracji celi w srodowisku
+ |
+ ---- tu konczy sie "prawdziwe MVP" - dopiero potem odmrozic GUI ----------
+ |
+ v0.5  USABLE GUI                (CZESCIOWO ODMROZONE) [###-------]  35%
+ |  [x] okno, menu/pasek z actions.py, drzewo, widok 3D, F6 przez walidator
+ |  [x] panel Projektu obrobki pokazujacy raport walidacji (odswiezany po aktualizacji i eksporcie)
+ |  [ ]      edycja wlasciwosci, gizmo, zaznaczanie w 3D
+ |  [ ]      podglad osiagalnosci na zywo, animacja (os czasu)
+ |
+ v0.6  ADVANCED MACHINING                           [###-------]  30%
+ |  [x] matematyka kalibracji TCP / ukladu (coop/calibration.py)
+ |  [x] kalibracje TCP, baz i układu 3-punktowego w CLI (JSON, walidacja, zapis atomowy)
+ |  [x] kalibracje TCP/baz/układu w GUI (JSON, podglad RMS, potwierdzenie, Undo/Redo)
+ |  [ ]      orientacja: podazanie za sciezka, remote TCP (robot trzyma detal)
+ |  [ ]      makra Python, import krzywych z geometrii
+ |
+ v0.7  ROBUSTNESS                                   [##--------]  20%
+ |  [~] >>6  przybliżone kolizje: kapsuły ogniw vs prostopadłościany,
+ |           próbki trajektorii, allow-lista par przez API, konfiguracja w manifeście
+ |  [ ]      pełna geometria mesh/FCL, samokolizje i edytor mapy kolizji w GUI
+ |  [ ]      osie zewnetrzne: szyna, pozycjoner
+ |
+ v0.8  DUAL-ARM (wyroznik)        (eksperyment)     [#---------]   5%
+ |  [~] prototyp solvera A trzyma detal / B wrzeciono (coop/dual_arm.py)
+ |  [ ]      kalibracja baz A<->B w przeplywie, podzial ruchu
+ |  [ ]      dwa zsynchronizowane programy
+ |
+ v1.0  PRODUCTION                                   [----------]   0%
+    [ ]      dokumentacja uzytkownika, wiecej postow (Fanuc, Yaskawa)
+    [ ]      sterownik online (opcja), instalator
+
+=============================================================================
+ NARZEDZIA I INFRASTRUKTURA
+   [x] raport HTML z manifestu          [x] przykladowe programy NC
+   [x] launcher + roboCODE.exe          [x] test_exe.bat (12/12 OK)
+   [x] konfiguracje PyCharm (.run)      [x] plik CI (GitHub Actions)
+   [ ] CI faktycznie uruchomione  - blokada rozliczen konta GitHub
+   [ ] scalic PR #1 (galaz poc-0.2) do main
+=============================================================================
+ KOLEJKA - CO ROBIC TERAZ (od gory):
+
+   1. weryfikacja importu/kompilacji WorkVisual / RobotStudio (lokalny eksport i read-back OK; brak aplikacji vendor)
+   2. test na robocie (T1) ...................... v0.4   <- koniec MVP; wymaga sterownika, robota i nadzorujacego operatora
+   3. panel raportu walidacji w GUI ............. v0.5   [x]
+   4. kalibracje w GUI ........................... v0.6   [x]
+   5. kolizje ................................... v0.7 [~] proxy w symulatorze; pełny zakres otwarty
+=============================================================================

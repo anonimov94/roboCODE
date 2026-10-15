@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from robocode.core import pose as P
 from robocode.core import commands as C

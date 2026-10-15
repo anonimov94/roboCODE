@@ -94,8 +94,9 @@ ACTIONS: list[Action] = [
     A("tools.language", "Język", "Language", None, "languages", "set_language"),
     A("tools.options", "Opcje…", "Options…", None, "settings", "open_options"),
     # Narzędzia CNC (Utilities)
-    A("cnc.calib_tcp", "Kalibruj TCP", "Calibrate TCP", None, "target", None, milestone="M6"),
-    A("cnc.calib_frame", "Kalibruj układ", "Calibrate reference frame", None, "locate-fixed", None, milestone="M6"),
+    A("cnc.calib_tcp", "Kalibruj TCP…", "Calibrate TCP…", None, "target", "calibrate_tcp_gui", milestone="M6"),
+    A("cnc.calib_frame", "Kalibruj układ…", "Calibrate reference frame…", None, "locate-fixed",
+      "calibrate_frame_gui", milestone="M6"),
     A("cnc.sync_axes", "Synchronizuj osie zewnętrzne", "Synchronize external axes", None, "link", None, milestone="M7"),
     A("cnc.machining", "Projekt obróbki", "Machining project", "Ctrl+M", "drill", "new_machining_project"),
     A("cnc.update", "Aktualizuj projekt obróbki", "Update machining project", "Ctrl+U", "refresh-cw",

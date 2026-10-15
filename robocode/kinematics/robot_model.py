@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from itertools import product
 
 import numpy as np
 
@@ -17,6 +18,17 @@ class DH:
     alpha: float  # deg
     d: float
     theta_offset: float = 0.0  # deg
+
+
+@dataclass
+class IKResult:
+    q: np.ndarray | None
+    status: str  # "ok" | "no_convergence" | "joint_limits" | "invalid_input"
+    message: str
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "ok"
 
 
 @dataclass
@@ -98,16 +110,210 @@ class RobotModel:
             q = q + step
         return None
 
-    def ik_all(self, T_target, seeds=None) -> list[np.ndarray]:
-        """Wiele rozwiązań z różnych ziaren (przybliżenie listy konfiguracji)."""
+    def ik_solve(self, T_target: np.ndarray, q_seed, **kw) -> "IKResult":
+        """IK with an explicit status instead of a bare None (docs §6.3)."""
+        if not (np.asarray(T_target).shape == (4, 4) and np.all(np.isfinite(T_target))):
+            return IKResult(None, "invalid_input", "Poza celu zawiera NaN/inf")
+        q = self.ik_unbounded(T_target, q_seed, **kw)
+        if q is None:
+            reach = float(np.linalg.norm(T_target[:3, 3]))
+            return IKResult(None, "no_convergence",
+                            f"Brak rozwiązania IK (odległość od bazy {reach:.0f} mm) – cel poza zasięgiem "
+                            "lub w osobliwości")
+        if not self.within_limits(q):
+            bad = [j + 1 for j, (v, (lo, hi)) in enumerate(zip(q, self.limits_deg)) if not lo <= v <= hi]
+            return IKResult(q, "joint_limits", f"Rozwiązanie istnieje, ale osie {bad} poza limitami")
+        return IKResult(q, "ok", "")
+
+    def ik_unbounded(self, T_target, q_seed, tol_mm=1e-3, tol_deg=1e-3, iters=200):
+        """Numeric IK ignoring joint limits (for diagnostics)."""
+        lim = self.limits_deg
+        self.limits_deg = [(-1e9, 1e9)] * self.n
+        try:
+            return self.ik(T_target, q_seed, tol_mm, tol_deg, iters)
+        finally:
+            self.limits_deg = lim
+
+    def supports_analytic_ik(self) -> bool:
+        """Whether this DH chain matches the closed-form spherical-wrist solver."""
+        if self.n != 6:
+            return False
+
+        def close(value: float, expected: float) -> bool:
+            return abs(value - expected) < 1e-7
+
+        a = [link.a for link in self.dh]
+        alpha = [link.alpha for link in self.dh]
+        d = [link.d for link in self.dh]
+        return (
+            len(self.joint_sign) == 6 and all(sign in (-1, 1) for sign in self.joint_sign)
+            and abs(abs(alpha[0]) - 90.0) < 1e-7
+            and close(alpha[1], 0.0)
+            and close(a[3], 0.0) and close(a[4], 0.0) and close(d[4], 0.0)
+            and close(a[5], 0.0) and close(alpha[5], 0.0)
+            and abs(abs(alpha[3]) - 90.0) < 1e-7
+            and abs(alpha[3] + alpha[4]) < 1e-7
+            and abs(a[1]) > 1e-9
+        )
+
+    def ik_analytic(self, T_target: np.ndarray, include_turns: bool = True) -> list[np.ndarray]:
+        """Return closed-form IK branches for supported 6R spherical-wrist DH models.
+
+        The arm is solved as two planar links after the shoulder branch; the wrist
+        is decomposed into Z-Y-Z rotations. Unsupported DH layouts raise ValueError.
+        """
+        if not self.supports_analytic_ik():
+            raise ValueError("Analityczne IK obsługuje tylko model 6R z nadgarstkiem sferycznym i zgodną geometrią DH")
+        target = np.asarray(T_target, dtype=float)
+        if target.shape != (4, 4) or not np.all(np.isfinite(target)) or not P.is_valid_pose(target):
+            return []
+
+        target_flange = target @ P.inv(self.flange)
+        p_wc = target_flange[:3, 3] - self.dh[5].d * target_flange[:3, 2]
+        alpha1 = np.deg2rad(self.dh[0].alpha)
+        alpha3 = np.deg2rad(self.dh[2].alpha)
+        a2 = self.dh[1].a
+        a3 = self.dh[2].a
+        d4 = self.dh[3].d
+        link3_length = float(np.hypot(a3, d4 * np.sin(alpha3)))
+        if abs(a2) < 1e-9 or link3_length < 1e-9:
+            return []
+        link3_angle = float(np.arctan2(-d4 * np.sin(alpha3), a3))
+        z_offset = self.dh[1].d + self.dh[2].d + d4 * np.cos(alpha3)
+        position_scale = max(1.0, float(np.linalg.norm(p_wc)))
+        tolerance = position_scale * 1e-9
+        solutions: list[np.ndarray] = []
+
+        def joint_values(theta_deg: float, index: int) -> list[float]:
+            q0 = (theta_deg - self.dh[index].theta_offset) / self.joint_sign[index]
+            lo, hi = self.limits_deg[index]
+            first = int(np.ceil((lo - q0 - 1e-9) / 360.0))
+            last = int(np.floor((hi - q0 + 1e-9) / 360.0))
+            candidates = [q0 + 360.0 * turn for turn in range(first, last + 1)]
+            if not include_turns and candidates:
+                return [min(candidates, key=abs)]
+            return candidates
+
+        shoulder_a = np.sin(alpha1) * p_wc[0]
+        shoulder_b = -np.sin(alpha1) * p_wc[1]
+        shoulder_c = np.cos(alpha1) * (p_wc[2] - self.dh[0].d)
+        shoulder_radius = float(np.hypot(shoulder_a, shoulder_b))
+        if shoulder_radius < 1e-12:
+            if abs(shoulder_c) > tolerance:
+                return []
+            shoulder_angles = [0.0]
+        else:
+            shoulder_value = -shoulder_c / shoulder_radius
+            if abs(shoulder_value) > 1.0 + 1e-9:
+                return []
+            shoulder_value = float(np.clip(shoulder_value, -1.0, 1.0))
+            shoulder_phase = float(np.arctan2(shoulder_b, shoulder_a))
+            shoulder_asin = float(np.arcsin(shoulder_value))
+            shoulder_angles = [
+                shoulder_asin - shoulder_phase,
+                np.pi - shoulder_asin - shoulder_phase,
+            ]
+
+        for theta1 in shoulder_angles:
+            theta1_deg = np.rad2deg(theta1)
+            q1_values = joint_values(theta1_deg, 0)
+            if not q1_values:
+                continue
+            for q1 in q1_values:
+                T01 = self.fk_all([q1, 0, 0, 0, 0, 0])[1]
+                local = T01[:3, :3].T @ (p_wc - T01[:3, 3])
+                if abs(local[2] - z_offset) > tolerance:
+                    continue
+                x, y = local[0], local[1]
+                elbow_cos = (x * x + y * y - a2 * a2 - link3_length * link3_length) / (
+                    2.0 * a2 * link3_length
+                )
+                if abs(elbow_cos) > 1.0 + 1e-9:
+                    continue
+                elbow_cos = float(np.clip(elbow_cos, -1.0, 1.0))
+                position_angle = float(np.arctan2(y, x))
+                elbow_angle = float(np.arccos(elbow_cos))
+                for delta in (elbow_angle, -elbow_angle):
+                    theta2 = position_angle - np.arctan2(
+                        link3_length * np.sin(delta), a2 + link3_length * np.cos(delta)
+                    )
+                    theta3 = delta - link3_angle
+                    q2_values = joint_values(np.rad2deg(theta2), 1)
+                    q3_values = joint_values(np.rad2deg(theta3), 2)
+                    if not q2_values or not q3_values:
+                        continue
+                    for q2, q3 in product(q2_values, q3_values):
+                        arm = [q1, q2, q3, 0.0, 0.0, 0.0]
+                        R03 = self.fk_all(arm)[3][:3, :3]
+                        R36 = R03.T @ target_flange[:3, :3]
+                        middle = float(np.arccos(np.clip(R36[2, 2], -1.0, 1.0)))
+                        wrist_betas = (middle, -middle)
+                        for beta in wrist_betas:
+                            sin_beta = np.sin(beta)
+                            if abs(sin_beta) < 1e-9:
+                                theta4 = 0.0
+                                Rz6 = np.array([
+                                    [np.cos(beta), 0.0, -np.sin(beta)],
+                                    [0.0, 1.0, 0.0],
+                                    [np.sin(beta), 0.0, np.cos(beta)],
+                                ]) @ R36
+                                theta6 = float(np.arctan2(Rz6[1, 0], Rz6[0, 0]))
+                            else:
+                                direction = np.sign(sin_beta)
+                                theta4 = float(np.arctan2(direction * R36[1, 2], direction * R36[0, 2]))
+                                theta6 = float(np.arctan2(direction * R36[2, 1], -direction * R36[2, 0]))
+                            wrist_sign = np.sign(np.sin(np.deg2rad(self.dh[3].alpha)))
+                            theta5 = -beta / wrist_sign
+                            wrist_values = [
+                                joint_values(np.rad2deg(theta), index)
+                                for theta, index in ((theta4, 3), (theta5, 4), (theta6, 5))
+                            ]
+                            if any(not values for values in wrist_values):
+                                continue
+                            for q4, q5, q6 in product(*wrist_values):
+                                q = np.array([q1, q2, q3, q4, q5, q6], dtype=float)
+                                if self.within_limits(q) and not any(np.allclose(q, old, atol=0.5) for old in solutions):
+                                    solutions.append(q)
+        return solutions
+
+    def ik_all(self, T_target, seeds=None, include_turns: bool = True) -> list[np.ndarray]:
+        """Return all IK solutions in limits, preferring analytic branches when available.
+
+        For other DH layouts, retain the numeric seed search and wrist-flip fallback.
+        """
+        if self.supports_analytic_ik():
+            return self.ik_analytic(T_target, include_turns=include_turns)
         if seeds is None:
-            seeds = [[a1, a2, a3, 0, a5, 0]
-                     for a1 in (0, 180, -180) for a2 in (-60, 0) for a3 in (60, -60, 120) for a5 in (45, -45)]
+            seeds = [[a1, a2, a3, a4, a5, 0]
+                     for a1 in (0, 90, -90, 180, -180) for a2 in (-60, 0, 60) for a3 in (60, -60, 120)
+                     for a4 in (0, 90, -90) for a5 in (45, -45)]
         sols: list[np.ndarray] = []
-        for s in seeds:
-            q = self.ik(T_target, s, iters=150)
-            if q is not None and not any(np.allclose(q, x, atol=0.5) for x in sols):
-                sols.append(q)
+
+        def add(q):
+            if q is not None and self.within_limits(q) and not any(np.allclose(q, x, atol=0.5) for x in sols):
+                sols.append(np.asarray(q, float))
+                return True
+            return False
+
+        for sd in seeds:
+            add(self.ik(T_target, sd, iters=150))
+        for q in list(sols):
+            for s4 in (180.0, -180.0):
+                for s6 in (180.0, -180.0):
+                    flip = q.copy()
+                    flip[3] += s4
+                    flip[4] = -flip[4]
+                    flip[5] += s6
+                    if self.within_limits(flip):
+                        add(self.ik(T_target, flip, iters=50))
+        if include_turns:
+            for q in list(sols):
+                for j, (lo, hi) in enumerate(self.limits_deg):
+                    if hi - lo > 360:
+                        for turn in (360.0, -360.0):
+                            v = q.copy()
+                            v[j] += turn
+                            add(v)
         return sols
 
     # ---------------- I/O ----------------

@@ -4,7 +4,7 @@ from robocode.demo import DEMO_NC, build_demo_station
 from robocode.coop.calibration import calibrate_bases, calibrate_tcp, frame_from_3_points
 from robocode.core import pose as P
 from robocode.machining.nc_parser import parse_gcode
-from robocode.machining.solver import MachiningSettings, solve
+from robocode.machining.solver import MachiningSettings, enumerate_start_configurations, solve
 from robocode.machining.toolpath import Toolpath
 from robocode.post.base import get_post
 from robocode.program.simulator import simulate
@@ -48,6 +48,27 @@ def test_machining_solve_simulate_and_posts(tmp_path):
         assert txt.count("\n") > 20
     krl = (tmp_path / "Machining.src").read_text()
     assert krl.startswith("DEF Machining") and "LIN {X 60.000" in krl and krl.strip().endswith("END")
+
+
+def test_start_ik_configurations_can_be_listed_and_selected():
+    _, robot, frame, tool = build_demo_station()
+    path = parse_gcode(DEMO_NC)
+    settings = MachiningSettings()
+    configurations = enumerate_start_configurations(
+        robot, robot.frame_rel_base(frame), tool.tcp(), path, settings
+    )
+
+    assert len(configurations) > 1
+    assert all(robot.model.within_limits(config.joints) for config in configurations)
+    selected = solve(robot, robot.frame_rel_base(frame), tool.tcp(), path,
+                     MachiningSettings(start_configuration_index=2))
+    assert selected.ok, selected.message
+    assert selected.start_configurations
+    assert np.allclose(selected.joints[0], configurations[1].joints)
+
+    invalid = solve(robot, robot.frame_rel_base(frame), tool.tcp(), path,
+                    MachiningSettings(start_configuration_index=len(configurations) + 1))
+    assert not invalid.ok and "Nieprawidłowy wybór konfiguracji początkowej" in invalid.message
 
 
 def test_unreachable_reports_failure():
