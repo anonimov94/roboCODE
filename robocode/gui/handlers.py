@@ -10,9 +10,10 @@ import numpy as np
 from ..core import commands as C
 from ..core import pose as P
 from ..core.io import load_station, save_station
-from ..core.scene import Frame, Item, Robot, Station, Tool
+from ..core.scene import Frame, Item, Object, Robot, Station, Tool
 from ..coop.calibration import calibrate_bases, calibrate_tcp, frame_from_3_points
 from ..collision import CollisionChecker
+from ..kinematics.robot_model import RobotModel
 from ..program.instructions import MoveJ, MoveL, Program
 from ..program.report import Severity, ValidationReport
 
@@ -25,6 +26,7 @@ class AppState:
     path: Path | None = None
     fast_sim: bool = False
     collisions_enabled: bool = True
+    collision_pairs: set[tuple[str, str]] | None = None
     overlay: object = None            # render.Overlay – ścieżka obróbki, ślad
     render_opt: object = None         # render.RenderOptions
     project: object = None            # demo.MachiningProject
@@ -56,9 +58,60 @@ def _clear_simulation(s: AppState) -> None:
     s.simulation_playing = False
 
 
+def collision_map_options(s: AppState) -> list[tuple[str, str]]:
+    robot = s.robot()
+    if robot is None or not isinstance(robot.model, RobotModel):
+        return []
+    objects = [
+        item for item in s.station.walk()
+        if isinstance(item, Object) and item.visible and item.box_size is not None
+    ]
+    if not objects:
+        return []
+    components = [f"link_{index}" for index in range(1, robot.model.n + 1)]
+    if robot.active_tool is not None:
+        components.append(f"tool:{robot.active_tool.name}")
+    return [
+        (f"{robot.name}/{component}", obstacle.name)
+        for component in components
+        for obstacle in objects
+    ]
+
+
+def set_collision_map(s: AppState, pairs) -> str:
+    try:
+        normalized = CollisionChecker(pairs=pairs).pairs
+    except (TypeError, ValueError):
+        return "Nieprawidłowa mapa par kolizji"
+    if normalized is None or not normalized.issubset(set(collision_map_options(s))):
+        return "Mapa zawiera pary spoza bieżącej stacji"
+    old_pairs = None if s.collision_pairs is None else set(s.collision_pairs)
+    if old_pairs == normalized:
+        return "Mapa kolizji bez zmian"
+    new_pairs = set(normalized)
+
+    def assign(value):
+        s.collision_pairs = None if value is None else set(value)
+        _clear_simulation(s)
+        s.last_report = None
+
+    s.undo.push(C.Command(
+        "Zmień mapę kolizji",
+        lambda: assign(new_pairs),
+        lambda: assign(old_pairs),
+    ))
+    return f"Mapa kolizji: aktywne {len(new_pairs)} par"
+
+
+def _collision_checker(s: AppState) -> CollisionChecker:
+    pairs = s.collision_pairs if s.collisions_enabled else []
+    return CollisionChecker(pairs=pairs)
+
+
 def new_station(s: AppState) -> str:
     s.station, s.undo, s.selection, s.path = Station(name="Stacja 1"), C.UndoStack(), [], None
     s.project, s.last_report, s.overlay, s.pending_calibration = None, None, None, None
+    s.collision_pairs = None
     _clear_simulation(s)
     return "Nowa stacja"
 
@@ -82,6 +135,7 @@ def open_file(s: AppState, path: str | None = None) -> str:
     s.station, s.path = load_station(path), Path(path)
     s.undo = C.UndoStack()
     s.project, s.last_report, s.overlay, s.pending_calibration = None, None, None, None
+    s.collision_pairs = None
     _clear_simulation(s)
     return f"Otwarto {Path(path).name}"
 
@@ -273,7 +327,7 @@ def generate_program(s: AppState, folder: str = "programs") -> str:
         else _current_program(s)
     if not p:
         return "Brak programu"
-    checker = CollisionChecker() if s.collisions_enabled else CollisionChecker(pairs=[])
+    checker = _collision_checker(s)
     job = export_program(p, p.robot.post_processor, folder,
                          parser_warnings=s.project.toolpath.warnings if s.project else None,
                          collision_checker=checker)
@@ -475,6 +529,7 @@ def open_demo(s: AppState) -> str:
     st, proj = demo_project()
     _clear_simulation(s)
     s.station, s.project, s.undo, s.selection, s.path = st, proj, C.UndoStack(), [], None
+    s.collision_pairs = None
     s.overlay = proj.overlay()
     s.view_request = "iso"
     _update_machining_report(s)
@@ -493,6 +548,7 @@ def new_machining_project(s: AppState, nc_path: str | None = None) -> str:
     r = s.robot()
     if r is None:  # pusta stacja -> użyj stacji demonstracyjnej jako komórki
         s.station, r, *_ = build_demo_station()
+        s.collision_pairs = None
     fr = r.active_frame or next((i for i in s.station.walk() if isinstance(i, Frame)), None)
     tool = r.active_tool or (r.tools()[0] if r.tools() else None)
     if fr is None or tool is None:
@@ -530,7 +586,7 @@ def update_machining(s: AppState) -> str:
 def simulate_program(s: AppState) -> str:
     """Calculate a validated simulation trace for local GUI playback."""
     from ..program.simulator import simulate
-    checker = CollisionChecker() if s.collisions_enabled else CollisionChecker(pairs=[])
+    checker = _collision_checker(s)
     prog = s.project.result.program if s.project and s.project.result and s.project.result.ok \
         else _current_program(s)
     if prog is None:
@@ -596,6 +652,7 @@ HANDLERS = {
     "edit_item_properties": edit_item_properties,
     "toggle_frame_gizmo": toggle_frame_gizmo, "toggle_tcp_gizmo": toggle_tcp_gizmo,
     "transform_item_world": transform_item_world,
+    "set_collision_map": set_collision_map,
     "toggle_fast_sim": toggle_fast_sim, "toggle_collisions": toggle_collisions,
     "view_iso": _view("iso"), "view_top": _view("top"), "view_front": _view("front"), "view_side": _view("side"),
     "view_fit": _view("fit"), "view_path": _view("path"), "frames_bigger": frames_bigger,

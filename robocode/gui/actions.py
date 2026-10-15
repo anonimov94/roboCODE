@@ -88,7 +88,7 @@ ACTIONS: list[Action] = [
     A("tools.trace", "Ślad TCP", "Trace", None, "route", "toggle_trace", True, "M3"),
     A("tools.collisions", "Sprawdzaj kolizje", "Check collisions", None, "shield-alert",
       "toggle_collisions", True, "M5"),
-    A("tools.collision_map", "Mapa kolizji", "Collision map", None, "grid-3x3", None, milestone="M5"),
+    A("tools.collision_map", "Mapa kolizji", "Collision map", None, "grid-3x3", "edit_collision_map", milestone="M5"),
     A("tools.color", "Kolor", "Change color", None, "palette", None, milestone="M3"),
     A("tools.measure", "Pomiar", "Measure", None, "ruler", None, milestone="M3"),
     A("tools.create_curves", "Twórz krzywe z geometrii", "Create curves", None, "pen-line", None, milestone="M6"),

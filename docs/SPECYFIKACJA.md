@@ -200,6 +200,10 @@ Program ──post.generate──► tekst KRL/RAPID w pamięci ──verify_pos
 - Każda próbka symulacji może być sprawdzona przez `CollisionChecker`: odcinki między ramkami DH robota
   są traktowane jako kapsuły (domyślny promień 28 mm), a obiekty stacji z `box_size` jako prostopadłościany
   w ich lokalnym układzie. To uproszczone proxy, nie geometria CAD robota.
+- Akcja GUI „Mapa kolizji” pozwala wybrać sprawdzane pary robot/komponent–obiekt. Domyślnie sprawdzane
+  są wszystkie ogniwa i widoczne obiekty pudełkowe; proxy aktywnego narzędzia pozostaje wyłączone,
+  dopóki nie zostanie zaznaczone. Wybór obowiązuje w symulacji GUI i eksporcie F6, jest cofalny,
+  ale obecnie nie jest zapisywany w pliku stacji.
 - Trafienie dodaje ostrzeżenie `COLLISION_PROXY` z numerem instrukcji i linią NC; samo nie blokuje eksportu,
   bo model może dawać fałszywe trafienia i pominięcia. Raport zawsze zawiera też `COLLISION_NOT_CHECKED`,
   jasno wskazujące niepełny zakres. Kontrola nie jest funkcją bezpieczeństwa ani zamiennikiem symulatora OEM.
@@ -372,7 +376,7 @@ sterowanie robotem:
 | Post KUKA KRL | post.kuka_krl | test_machining, test_review_fixes, test_post_golden, read-back 42 pozy | 🟡 eksport i read-back lokalny OK; WorkVisual nieobecny, składnia niezweryfikowana kompilatorem vendor |
 | Post ABB RAPID | post.abb_rapid | test_review_fixes, test_post_golden, read-back 42 pozy | 🟡 eksport i read-back lokalny OK; RobotStudio nieobecny, składnia niezweryfikowana kompilatorem vendor |
 | Mapowanie zdarzeń na I/O | post.base | test_review_fixes | ✅ gotowe |
-| Przybliżone kolizje kapsuła–prostopadłościan w próbkach trajektorii | collision.checker, program.simulator, pipeline | test_collision | 🟡 ostrzeżenia i API mapy par; GUI ma przełącznik kontroli w symulacji i eksporcie; bez edytora mapy, mesh/FCL, samokolizji i geometrii OEM |
+| Przybliżone kolizje kapsuła–prostopadłościan w próbkach trajektorii | collision.checker, program.simulator, pipeline, gui | test_collision, test_gui_spec | 🟡 przełącznik i edytor mapy par GUI (sesyjny); brak mesh/FCL, samokolizji i geometrii OEM |
 | GUI (menu, drzewo, 3D, F6 przez walidator, raport, osiągalność, gizmo i biblioteka robotów) | gui | test_gui_spec, test_render | 🟡 modele dodawane z biblioteki; osiągalność po obliczeniu projektu; workflow produkcyjny otwarty |
 | Selekcja elementów sceny z widoku 3D | gui.viewport, gui.render | test_gui_spec, test_render | ✅ kliknięcie pickowalnej geometrii synchronizuje zaznaczenie drzewa i panel właściwości |
 | Edycja nazwy i pozy elementu sceny w GUI | gui.handlers, gui.main_window | test_gui_spec | ✅ panel/aktywacja dwuklikiem; jedna komenda Undo/Redo, walidacja pozy i unieważnianie wyniku CAM |
@@ -632,7 +636,10 @@ GUI bez uruchamiania Qt.
   odtwarzanie aktualizuje podgląd 3D, a Stop przywraca pozycję początkową robota.
 - Akcja „Sprawdzaj kolizje” jest domyślnie włączona i przełącza przybliżone kontrole proxy zarówno
   w symulacji GUI, jak i walidacji eksportu F6. Wyłączenie jej ustawia pustą listę par i nie wyłącza
-  innych walidacji; brak edytora mapy oraz ograniczenia proxy opisano w §6.7.
+  innych walidacji.
+- Akcja „Mapa kolizji” otwiera listę par dla ogniw/aktywnego narzędzia i widocznych obiektów
+  pudełkowych. Domyślnie aktywne są ogniwa, a narzędzie wymaga jawnego zaznaczenia. Zmiana wpływa
+  na symulację i eksport, obsługuje Cofnij/Ponów i obowiązuje tylko do zamknięcia aplikacji.
 
 ### B2.2 Menu
 | Menu | Pozycje |

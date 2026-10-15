@@ -146,6 +146,34 @@ def test_gui_collision_toggle_controls_simulation_checker(monkeypatch):
     dispatch(state, "simulate_program")
     assert seen_checkers[-1].pairs == set()
     assert "wł." in dispatch(state, "toggle_collisions")
+    selected = {("Robot/link_2", "Surowiec")}
+    dispatch(state, "set_collision_map", selected)
+    dispatch(state, "simulate_program")
+    assert seen_checkers[-1].pairs == selected
+
+
+def test_collision_map_edits_pairs_and_supports_undo_redo():
+    from robocode.gui.handlers import collision_map_options
+
+    state = AppState()
+    state.station, _, _, _ = build_demo_station()
+    options = collision_map_options(state)
+    assert ("Robot/link_1", "Surowiec") in options
+    assert ("Robot/tool:Wrzeciono", "Surowiec") in options
+
+    selected = {("Robot/link_2", "Surowiec"), ("Robot/tool:Wrzeciono", "Surowiec")}
+    assert "aktywne 2 par" in dispatch(state, "set_collision_map", selected)
+    assert state.collision_pairs == selected
+    assert dispatch(state, "undo") == "Cofnięto"
+    assert state.collision_pairs is None
+    assert dispatch(state, "redo") == "Ponowiono"
+    assert state.collision_pairs == selected
+    assert "spoza bieżącej stacji" in dispatch(
+        state, "set_collision_map", {("Robot/link_1", "Unknown")},
+    )
+    assert state.collision_pairs == selected
+    dispatch(state, "open_demo")
+    assert state.collision_pairs is None
 
 
 def test_gui_collision_toggle_is_passed_to_exporter(monkeypatch, tmp_path):
@@ -168,6 +196,11 @@ def test_gui_collision_toggle_is_passed_to_exporter(monkeypatch, tmp_path):
     state.collisions_enabled = False
     dispatch(state, "generate_program", str(tmp_path))
     assert captured["collision_checker"].pairs == set()
+    selected = {("Robot/link_3", "Surowiec")}
+    state.collisions_enabled = True
+    dispatch(state, "set_collision_map", selected)
+    dispatch(state, "generate_program", str(tmp_path))
+    assert captured["collision_checker"].pairs == selected
 
 
 def test_simulation_timeline_seek_and_stop_restore_initial_robot_pose():
@@ -440,6 +473,36 @@ def test_robot_library_action_adds_selected_model(monkeypatch):
         window.qactions["file.library"].trigger()
         assert window.state.robot() is not None
         assert window.state.robot().model.name == load_robot("ur5e").name
+    finally:
+        window.viewport.close()
+        window.close()
+        app.quit()
+
+
+def test_collision_map_action_applies_checked_pairs(monkeypatch):
+    import pytest
+
+    pytest.importorskip("PySide6")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import Qt
+    from PySide6.QtWidgets import QDialog, QListWidget
+    from robocode.gui.main_window import build_window
+
+    def accept_with_one_pair_disabled(dialog):
+        pair_list = dialog.findChild(QListWidget)
+        assert pair_list is not None and pair_list.count() > 1
+        pair_list.item(0).setCheckState(Qt.Unchecked)
+        return QDialog.Accepted
+
+    monkeypatch.setattr(QDialog, "exec", accept_with_one_pair_disabled)
+    state = AppState()
+    state.station, _, _, _ = build_demo_station()
+    app, window = build_window(state)
+    try:
+        window.qactions["tools.collision_map"].trigger()
+        assert state.collision_pairs is not None
+        assert ("Robot/link_1", "Surowiec") not in state.collision_pairs
+        assert len(state.collision_pairs) > 0
     finally:
         window.viewport.close()
         window.close()

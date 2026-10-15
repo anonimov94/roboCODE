@@ -56,8 +56,9 @@ GUI (opcjonalne zależności `pip install -e .[gui]`): `python -m robocode.cli g
 Dostępne są m.in. panel raportu obróbki z podsumowaniem osiągalności punktów, gizmo translacji/obrotu
 dla układów, obiektów, celów, krzywych i TCP, edycja i zaznaczanie elementów, kalibracja z plików
 pomiarowych, dodawanie modelu z biblioteki robotów do pustej stacji, oś czasu symulacji oraz
-przełącznik przybliżonej kontroli kolizji. Obecnie obsługiwany jest jeden robot na stację. To
-ograniczony workflow offline; nie jest zatwierdzony do sterowania robotem.
+przełącznik i edytor mapy przybliżonych kolizji. Mapa par jest stosowana w symulacji i eksporcie,
+ale nie jest zapisywana w pliku stacji. Obecnie obsługiwany jest jeden robot na stację. To ograniczony
+workflow offline; nie jest zatwierdzony do sterowania robotem.
 GUI nie jest dołączone do EXE.
 
 ![Widok ogólny](docs/gui_demo.png)
@@ -70,7 +71,7 @@ GUI nie jest dołączone do EXE.
 - Pliki KRL/RAPID przechodzą wewnętrzny read-back, ale nie były kompilowane w WorkVisual/
   RobotStudio ani weryfikowane na sterowniku.
 - Kontrola kolizji to przybliżone kapsuły ogniw kontra prostopadłościany; brak pełnej geometrii,
-  samokolizji i walidacji bezpieczeństwa. Przełącznik GUI/F6 jedynie włącza lub wyłącza te proxy.
+  samokolizji i walidacji bezpieczeństwa. Mapa GUI jedynie włącza/wyłącza wybrane pary proxy.
 - roboCODE nie zastępuje funkcji bezpieczeństwa robota ani procedur stanowiska (specyfikacja §12).
 
 ## Źródła wymagań

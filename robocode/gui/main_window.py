@@ -50,6 +50,8 @@ def build_window(state: AppState | None = None):
         QInputDialog,
         QLabel,
         QLineEdit,
+        QListWidget,
+        QListWidgetItem,
         QMainWindow,
         QMessageBox,
         QPushButton,
@@ -232,6 +234,7 @@ def build_window(state: AppState | None = None):
     # --- akcje ---
     def run_command(cmd):
         args = []
+        dispatch_command = cmd
         restart_simulation = (
             cmd == "pause_sim"
             and state.last_sim is not None
@@ -256,8 +259,46 @@ def build_window(state: AppState | None = None):
             if not accepted:
                 return
             args = [model]
+        elif cmd == "edit_collision_map":
+            from .handlers import collision_map_options
+
+            pairs = collision_map_options(state)
+            if not pairs:
+                QMessageBox.information(
+                    win, "Mapa kolizji",
+                    "Dodaj robota oraz widoczny obiekt prostopadłościenny, aby edytować mapę.",
+                )
+                return
+            dialog = QDialog(win)
+            dialog.setWindowTitle("Mapa kolizji — sprawdzane pary")
+            layout = QVBoxLayout(dialog)
+            pair_list = QListWidget(dialog)
+            for pair in pairs:
+                item = QListWidgetItem(f"{pair[0]}  ↔  {pair[1]}", pair_list)
+                item.setData(Qt.UserRole, pair)
+                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+                if state.collision_pairs is None:
+                    checked = not pair[0].split("/", 1)[1].startswith("tool:")
+                else:
+                    checked = pair in state.collision_pairs
+                item.setCheckState(Qt.Checked if checked else Qt.Unchecked)
+            layout.addWidget(pair_list)
+            buttons = QDialogButtonBox(
+                QDialogButtonBox.Ok | QDialogButtonBox.Cancel, parent=dialog,
+            )
+            buttons.accepted.connect(dialog.accept)
+            buttons.rejected.connect(dialog.reject)
+            layout.addWidget(buttons)
+            if dialog.exec() != QDialog.Accepted:
+                return
+            args = [[
+                pair_list.item(index).data(Qt.UserRole)
+                for index in range(pair_list.count())
+                if pair_list.item(index).checkState() == Qt.Checked
+            ]]
+            dispatch_command = "set_collision_map"
         try:
-            msg = dispatch(state, cmd, *args)
+            msg = dispatch(state, dispatch_command, *args)
             if state.pending_calibration is not None:
                 _, _, details = state.pending_calibration
                 answer = QMessageBox.question(

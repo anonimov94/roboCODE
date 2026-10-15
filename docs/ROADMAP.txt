@@ -3,7 +3,7 @@
 =============================================================================
  Legenda:  [x] zrobione   [~] czesciowo   [ ] do zrobienia   >>N = kolejka
  Szczegoly wymagan: docs/SPECYFIKACJA.md (sekcje 10, 11, 13.2)
- Kod: 0.2.0.dev0 | 191 testów | roboCODE.exe (23 342 269 B) przebudowane i sprawdzone (Windows)
+ Kod: 0.2.0.dev0 | 195 testów | roboCODE.exe (23 342 269 B) przebudowane i sprawdzone (Windows)
 =============================================================================
 
  v0.1  FOUNDATION                                   [##########] 100%  GOTOWE
@@ -57,11 +57,10 @@
  |  [ ]      orientacja: podazanie za sciezka, remote TCP (robot trzyma detal)
  |  [ ]      makra Python, import krzywych z geometrii
  |
- v0.7  ROBUSTNESS                                   [##--------]  20%
+ v0.7  ROBUSTNESS                                   [###-------]  30%
  |  [~] >>6  przybliżone kolizje: kapsuły ogniw vs prostopadłościany,
- |           próbki trajektorii, przełącznik GUI i allow-lista par przez API
- |  [ ]      pełna geometria mesh/FCL, samokolizje i edytor mapy kolizji w GUI
- |  [ ]      osie zewnetrzne: szyna, pozycjoner
+ |           próbki trajektorii, przełącznik i edytor mapy par w GUI/API
+ |  [ ]      pełna geometria mesh/FCL, samokolizje i osie zewnetrzne
  |
  v0.8  DUAL-ARM (wyroznik)        (eksperyment)     [#---------]   5%
  |  [~] prototyp solvera A trzyma detal / B wrzeciono (coop/dual_arm.py)
@@ -90,7 +89,7 @@
       - blokada: brak robota, sterownika OEM, zatwierdzonej celi i nadzorujacego operatora
    3. limity predkosci/przyspieszen osi z kart katalogowych + uzupelnienie konfiguracji Rear/Down
    4. GUI v0.5: dalsze usprawnienia workflow; podglad osiagalnosci i gizmo dostepne offline
-   5. kolizje v0.7: geometria mesh/FCL, samokolizje i edytor mapy kolizji
+   5. kolizje v0.7: geometria mesh/FCL, samokolizje i osie zewnetrzne
    6. v0.6: orientacja podazajaca za sciezka / remote TCP, makra Python i import krzywych
    7. osie zewnetrzne; potem integracja przeplywu dual-arm i eksport dwoch programow
    8. v1.0: dokumentacja uzytkownika, posty Fanuc/Yaskawa, opcjonalny driver i instalator
