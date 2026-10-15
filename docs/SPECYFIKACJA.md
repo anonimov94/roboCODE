@@ -373,7 +373,7 @@ sterowanie robotem:
 | Post ABB RAPID | post.abb_rapid | test_review_fixes, test_post_golden, read-back 42 pozy | 🟡 eksport i read-back lokalny OK; RobotStudio nieobecny, składnia niezweryfikowana kompilatorem vendor |
 | Mapowanie zdarzeń na I/O | post.base | test_review_fixes | ✅ gotowe |
 | Przybliżone kolizje kapsuła–prostopadłościan w próbkach trajektorii | collision.checker, program.simulator, pipeline | test_collision | 🟡 ostrzeżenia i API mapy par; GUI ma przełącznik kontroli w symulacji i eksporcie; bez edytora mapy, mesh/FCL, samokolizji i geometrii OEM |
-| GUI (menu, drzewo, 3D, F6 przez walidator, raport, osiągalność i gizmo translacji/obrotu) | gui | test_gui_spec, test_render | 🟡 osiągalność po obliczeniu projektu; gizmo układów/obiektów/celi i TCP; workflow produkcyjny otwarty |
+| GUI (menu, drzewo, 3D, F6 przez walidator, raport, osiągalność, gizmo i biblioteka robotów) | gui | test_gui_spec, test_render | 🟡 modele dodawane z biblioteki; osiągalność po obliczeniu projektu; workflow produkcyjny otwarty |
 | Selekcja elementów sceny z widoku 3D | gui.viewport, gui.render | test_gui_spec, test_render | ✅ kliknięcie pickowalnej geometrii synchronizuje zaznaczenie drzewa i panel właściwości |
 | Edycja nazwy i pozy elementu sceny w GUI | gui.handlers, gui.main_window | test_gui_spec | ✅ panel/aktywacja dwuklikiem; jedna komenda Undo/Redo, walidacja pozy i unieważnianie wyniku CAM |
 | Panel Projektu obróbki z raportem walidacji | gui.main_window, gui.handlers | test_gui_spec (w tym Qt offscreen) | ✅ tab dokowany obok właściwości; pokazuje pełne podsumowanie, lokalizacje NC, próbki, czas i ostrzeżenia; odświeżany po obliczeniu/eksporcie |
@@ -617,6 +617,8 @@ GUI bez uruchamiania Qt.
   lub dwuklik zaznaczonego elementu otwiera edytor XYZ [mm] i Rx/Ry/Rz [°]. Zastosowanie wymaga
   niepustej, unikatowej nazwy i poprawnej macierzy pozy. Całość jest jedną operacją Undo/Redo.
   Zmiana unieważnia poprzedni wynik projektu obróbki; przed dalszym użyciem ścieżki trzeba ją przeliczyć.
+- Akcja „Biblioteka robotów” pozwala wybrać model z lokalnych plików `.robot.json` i dodać go do
+  pustej stacji. Dodanie można cofnąć/ponowić; obecny przepływ obsługuje jeden robot na stację.
 - Kliknięcie pickowalnej geometrii elementu w widoku 3D zaznacza go w drzewie i panelu właściwości.
   Zaznaczanie wspiera obecnie pojedynczy element; podłoga, ścieżki/overlay i elementy liniowe nie są
   wybierane. Zaznaczenie w drzewie działa również bez dostępnego renderera 3D.

@@ -105,6 +105,19 @@ def add_frame(s: AppState) -> str:
     return f"Dodano {f.name}"
 
 
+def add_robot_from_library(s: AppState, model_name: str) -> str:
+    if s.robot() is not None:
+        return "Stacja obsługuje obecnie jednego robota; dodawanie kolejnego jest niedostępne"
+    from ..robots import load_robot
+
+    model = load_robot(model_name)
+    robot = Robot(name=model.name, model=model)
+    s.undo.push(C.add_item(s.station, robot, f"Dodaj robota: {model.name}"))
+    s.selection = [robot]
+    _invalidate_machining_result(s)
+    return f"Dodano robota {model.name}"
+
+
 def add_tool(s: AppState) -> str:
     r = s.robot()
     if not r:
@@ -577,6 +590,7 @@ def stop_simulation(s: AppState) -> str:
 HANDLERS = {
     "new_station": new_station, "save_station": save_station_, "save_station_as": save_station_as,
     "open_file": open_file, "undo": undo, "redo": redo, "add_frame": add_frame, "add_tool": add_tool,
+    "add_robot_from_library": add_robot_from_library,
     "teach_target": teach_target, "add_program": add_program, "add_movej": add_movej, "add_movel": add_movel,
     "rename_selected": rename_selected, "toggle_visible": toggle_visible, "generate_program": generate_program,
     "edit_item_properties": edit_item_properties,

@@ -26,7 +26,7 @@ ACTIONS: list[Action] = [
     # Plik
     A("file.new", "Nowa stacja", "New station", "Ctrl+N", "file-plus", "new_station"),
     A("file.open", "Otwórz…", "Open…", "Ctrl+O", "folder-open", "open_file"),
-    A("file.library", "Biblioteka robotów", "Robot library", None, "library", "open_library"),
+    A("file.library", "Biblioteka robotów", "Robot library", None, "library", "add_robot_from_library"),
     A("file.demo", "Otwórz demo obróbki", "Open machining demo", None, "sparkles", "open_demo", milestone="M3"),
     A("file.recent", "Ostatni plik", "Load last file", "Ctrl+1", "history", "open_recent"),
     A("file.save", "Zapisz", "Save", "Ctrl+S", "save", "save_station"),

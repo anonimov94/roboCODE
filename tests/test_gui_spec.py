@@ -36,6 +36,25 @@ def test_handlers_flow(tmp_path):
     assert "Zapisano" in dispatch(s, "save_station_as", str(tmp_path / "x.rcs.json"))
 
 
+def test_robot_library_add_is_undoable_and_rejects_second_robot():
+    state = AppState()
+    model_name = "ur5e"
+    from robocode.robots import load_robot
+
+    assert "Dodano robota" in dispatch(state, "add_robot_from_library", model_name)
+    robot = state.robot()
+    assert robot is not None
+    assert robot.model.name == load_robot(model_name).name
+    assert state.selection == [robot]
+    assert "jednego robota" in dispatch(state, "add_robot_from_library", model_name)
+    assert len([item for item in state.station.walk() if item.kind == "robot"]) == 1
+
+    assert dispatch(state, "undo") == "Cofnięto"
+    assert state.robot() is None
+    assert dispatch(state, "redo") == "Ponowiono"
+    assert state.robot().model.name == load_robot(model_name).name
+
+
 def test_machining_project_updates_validation_report_and_panel_text():
     state = AppState()
     assert "Demo obróbki" in dispatch(state, "open_demo")
@@ -400,6 +419,27 @@ def test_main_window_shows_transform_gizmo_for_selected_frame(monkeypatch):
         window.qactions["view.move_frame"].trigger()
         assert state.gizmo_mode is None
         assert window.viewport._transform_widget is None
+    finally:
+        window.viewport.close()
+        window.close()
+        app.quit()
+
+
+def test_robot_library_action_adds_selected_model(monkeypatch):
+    import pytest
+
+    pytest.importorskip("PySide6")
+    monkeypatch.setenv("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtWidgets import QInputDialog
+    from robocode.gui.main_window import build_window
+    from robocode.robots import load_robot
+
+    monkeypatch.setattr(QInputDialog, "getItem", staticmethod(lambda *args: ("ur5e", True)))
+    app, window = build_window(AppState())
+    try:
+        window.qactions["file.library"].trigger()
+        assert window.state.robot() is not None
+        assert window.state.robot().model.name == load_robot("ur5e").name
     finally:
         window.viewport.close()
         window.close()

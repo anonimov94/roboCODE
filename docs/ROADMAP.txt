@@ -44,7 +44,7 @@
  ---- MVP wymaga jeszcze walidacji vendor i testu T1; GUI odblokowane czesciowo ----------
  |
  v0.5  USABLE GUI                (CZESCIOWO ODMROZONE) [########--]  80%
- |  [x] okno, menu/pasek z actions.py, drzewo, widok 3D, F6 przez walidator
+ |  [x] okno, menu/pasek z actions.py, drzewo, widok 3D, F6 przez walidator, dodanie modelu z biblioteki
  |  [x] panel Projektu obrobki pokazujacy raport walidacji (odswiezany po aktualizacji i eksporcie)
  |  [x]      edycja nazwy/pozy (Undo/Redo), selekcja 3D, gizmo translacji/obrotu dla ukladow, obiektow i TCP
  |  [x]      animacja symulacji: play/pauza/stop, suwak probek, 1x/5x/20x/100x, pozycja startowa

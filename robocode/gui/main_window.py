@@ -47,6 +47,7 @@ def build_window(state: AppState | None = None):
         QFileDialog,
         QFormLayout,
         QHBoxLayout,
+        QInputDialog,
         QLabel,
         QLineEdit,
         QMainWindow,
@@ -242,6 +243,19 @@ def build_window(state: AppState | None = None):
             if not fn:
                 return
             args = [fn]
+        elif cmd == "add_robot_from_library":
+            from ..robots import available
+
+            models = available()
+            if not models:
+                QMessageBox.warning(win, "Biblioteka robotów", "Brak dostępnych modeli robotów.")
+                return
+            model, accepted = QInputDialog.getItem(
+                win, "Biblioteka robotów", "Wybierz model:", models, 0, False,
+            )
+            if not accepted:
+                return
+            args = [model]
         try:
             msg = dispatch(state, cmd, *args)
             if state.pending_calibration is not None:
